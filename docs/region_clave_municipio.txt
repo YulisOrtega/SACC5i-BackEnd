@@ -1,0 +1,254 @@
+Region: Cuapiaxtla de Madero
+Clave	Municipio
+1	Acajete
+4	Acatzingo
+15	Amozoc
+20	Atoyatempan
+38	Cuapiaxtla de Madero
+40	Cuautinchan
+79	Huitziltepec
+97	Mixtla
+115	Quecholac
+118	Reyes de Juárez
+131	San Juan Atzompa
+144	San Salvador Huixcolotla
+147	Santa Inés Ahuatempan
+151	Santo Tomas Hueyotlipan
+153	Tecali de Herrera
+154	Tecamachalco
+163	Tepatlaxco de Hidalgo
+164	Tepeaca
+171	Tepeyahualco de Cuauhtémoc
+182	Tlanepantla
+189	Tochtepec
+193	Tzicatlacoyan
+203	Xochitlán Todos Santos
+205	Yehualtepec
+
+
+
+Region:	Palmar de Bravo
+Clave	Municipio
+12	Aljojuca
+23	Atzitzintla
+45	Chalchicomula de Sesma
+63	Esperanza
+65	General Felipe Ángeles
+96	Mazapiltepec de Juarez
+110	Palmar de Bravo
+130	San Juan Atenco
+137	San Nicolas Buenos Aires
+142	San Salvador El Seco
+152	Soltepec
+179	Tlachichuca
+
+Region:	Puebla
+Clave	Municipio
+19	Atlixco
+34	Coronango
+41	Cuautlancingo
+106	Ocoyucan
+119	San Andrés Cholula
+125	San Gregorio Atzompa
+140	San Pedro Cholula
+148	Santa Isabel Cholula
+138	Tochimilco
+114	Puebla
+
+
+Region:	Tehuacán
+Clave	Municipio
+10	Ajalpan
+13	Altepexi
+18	Atexcal
+27	Caltepec
+99	Cañada Morelos
+46	Chapulco
+35	Coxcatlán
+36	Coyomeapan
+37	Coyotepec
+51	Eloxochitlán
+52	Ixcaquixtla
+92	Juan N. Mendez
+98	Molcaxac
+103	Nicolas Bravo
+120	San Antonio Cañada
+124	San Gabriel Chilac
+129	San Jose Miahuatlán
+145	San Sebastián Tlacotepec
+149	Santiago Miahuatlán
+156	Tehuacán
+161	Tepanco de Lopez
+169	Tepexi de Rodríguez
+177	Tlacotepec De Benito Juarez
+195	Vicente Guerrero
+209	Zapotitlán
+214	Zinacatepec
+217	Zoquitlán
+
+
+
+Region:	Huejotzingo
+Clave	Municipio
+26	Calpan
+48	Chiautzingo
+60	Domingo Arenas
+74	Huejotzingo
+90	Juan C. Bonilla
+102	Nealtican
+122	San Felipe Teotlalcingo
+126	San Jerónimo Tecuanipan
+132	San Martín Texmelucan
+134	San Matías Tlalancaleca
+136	San Miguel Xoxtla
+138	San Nicolás de los Ranchos
+143	San Salvador El Verde
+175	Tianguismanalco
+180	Tlahuapan
+181	Tlaltenango
+
+Region:	Libres
+Clave	Municipio
+50	Chichiquila
+58	Chilchotla
+44	Cuyoaco
+67	Guadalupe Victoria
+83	Ixtacamaxtitlán
+93	Lafragua
+94	Libres
+104	Nopalucan
+105	Ocotepec
+108	Oriental
+116	Quimixtlán
+117	Rafael Lara Grajales
+128	San Jose Chiapa
+170	Tepeyahualco
+
+
+Region:	Zacatlán
+Clave	Municipio
+6	Ahuacatlan
+8	Ahuazotepec
+14	Amixtlán
+16	Aquixtla
+28	Camocuautla
+49	Chiconcuautla
+53	Chignahuapan
+30	Coatepec
+39	Cuautempan
+64	Francisco Z. Mena
+68	Hermenegildo Galeana
+57	Honey
+71	Huauchinango
+77	Hueytlalpan
+86	Jalpan
+89	Jopala
+91	Juan Galindo
+100	Naupan
+107	Olintla
+109	Pahuatlan
+111	Pantepec
+123	San Felipe Tepatlán
+162	Tepango de Rodríguez
+167	Tepetzintla
+172	Tetela de Ocampo
+178	Tlacuilotepec
+183	Tlaola
+184	Tlapacoya
+187	Tlaxco
+194	Venustiano Carranza
+197	Xicotepec
+208	Zacatlán
+213	Zihuateutla
+
+
+
+Region:	Teziutlán
+Clave	Municipio
+2	Acateno
+17	Atempan
+80	Atlequizayan
+25	Ayotoxco de Guerrero
+29	Caxhuacan
+54	Chignautla
+43	Cuetzalan del Progreso
+72	Huehuetla
+75	Hueyapan
+76	Hueytamalco
+78	Huitzilan de Serdán
+84	Ixtepec
+88	Jonotla
+101	Nauzontla
+158	Tenampulco
+173	Tetéles de Ávila Castillo
+174	Teziutlán
+186	Tlatlauquitepec
+192	Tuzamapan de Galeana
+199	Xiutetelco
+200	Xochiapulco
+202	Xochitlán de Vicente Suárez
+204	Yaonáhuac
+207	Zacapoaxtla
+210	Zapotitlán de Méndez
+211	Zaragoza
+212	Zautla
+215	Zongozotla
+216	Zoquiapan
+
+
+Region:	Izúcar
+Clave	Municipio
+3	Acatlán de Osorio
+5	Acteopan
+7	Ahuatlán
+9	Ahuehuetitla
+11	Albino Zertuche
+21	Atzala
+22	Atzitzihuacan
+24	Axutla
+47	Chiautla
+51	Chietla
+52	Chigmecatitlán
+55	Chila
+56	Chila de la Sal
+59	Chinantla
+31	Coatzingo
+32	Cohetzala
+33	Cohuecan
+42	Cuayuca de Andrade
+62	Epatlán
+66	Guadalupe
+69	Huaquechula
+70	Huatlatlauca
+73	Huehuetlan El Chico
+150	Huehuetlan El Grande
+81	Ixcamilpa de Guerrero
+85	Izucar de Matamoros
+87	Jolalpan
+95	Magdalena Tlatlauquitepec
+112	Petlalcingo
+113	Piaxtla
+121	San Diego La Mesa Tochimiltzingo
+127	San Jeronimo Xayacatlan
+133	San Martin Totoltepec
+135	San Miguel Ixitlán
+139	San Pablo Anicano
+141	San Pedro Yeloixtlahuaca
+146	Santa Catarina Tlaltempa
+155	Tecomatlán
+157	Tehuitzingo
+159	Teopantlan
+160	Teotlalco
+165	Tepemaxalco
+166	Tepeojuma
+168	Tepexco
+176	Tilapa
+185	Tlapanalá
+190	Totoltepec de Guerrero
+191	Tulcingo
+196	Xayacatlán De Bravo
+198	Xicotlán
+201	Xochiltepec
+206	Zacapala
+
+
