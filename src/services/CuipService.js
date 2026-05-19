@@ -39,22 +39,17 @@ class CuipService {
         { num: 11, nombre: 'C.U.R.P.' },
         { num: 12, nombre: 'Pasaporte' },
         { num: 13, nombre: 'Modo de Nacionalidad' },
-        { num: 14, nombre: 'País de Nacimiento' },
-        { num: 15, nombre: 'Entidad de Nacimiento' },
-        { num: 16, nombre: 'Municipio de Nacimiento' },
-        { num: 17, nombre: 'Nacionalidad' }
+        { num: 14, nombre: 'Fecha de Naturalización' },     
+        { num: 15, nombre: 'País de Nacimiento' },         
+        { num: 16, nombre: 'Entidad de Nacimiento' },     
+        { num: 17, nombre: 'Municipio de Nacimiento' },     
+        { num: 18, nombre: 'Nacionalidad' },  
+        { num: 19, nombre: 'Selección de Estado Civil' }  
       ]
     },
     {
-      clave: 'estado_civil', numero: 3,
-      nombre: '3. ESTADO CIVIL', tiene_excepcion: false,
-      campos: [
-        { num: 1, nombre: 'Selección de Estado Civil' }
-      ]
-    },
-    {
-      clave: 'desarrollo_academico', numero: 4,
-      nombre: '4. DESARROLLO ACADÉMICO', tiene_excepcion: true,
+      clave: 'desarrollo_academico', numero: 3,
+      nombre: '3. DESARROLLO ACADÉMICO', tiene_excepcion: true,
       campos: [
         { num: 1, nombre: 'Nivel Máximo de Estudios' },
         { num: 2, nombre: 'Escuela' },
@@ -68,8 +63,8 @@ class CuipService {
       ]
     },
     {
-      clave: 'domicilio', numero: 5,
-      nombre: '5. DOMICILIO', tiene_excepcion: false,
+      clave: 'domicilio', numero: 4,
+      nombre: '4. DOMICILIO', tiene_excepcion: false,
       campos: [
         { num: 1, nombre: 'Calle' },
         { num: 2, nombre: 'No. Exterior' },
@@ -85,8 +80,8 @@ class CuipService {
       ]
     },
     {
-      clave: 'adscripcion', numero: 6,
-      nombre: '6. ADSCRIPCIÓN', tiene_excepcion: false,
+      clave: 'adscripcion', numero: 5,
+      nombre: '5. ADSCRIPCIÓN', tiene_excepcion: false,
       campos: [
         { num: 1, nombre: 'Dependencia' },
         { num: 2, nombre: 'Institución' },
@@ -109,8 +104,8 @@ class CuipService {
       ]
     },
     {
-      clave: 'domicilio_adscripcion', numero: 7,
-      nombre: '7. DOMICILIO DE ADSCRIPCIÓN', tiene_excepcion: false,
+      clave: 'domicilio_adscripcion', numero: 6,
+      nombre: '6. DOMICILIO DE ADSCRIPCIÓN', tiene_excepcion: false,
       campos: [
         { num: 1, nombre: 'Calle' },
         { num: 2, nombre: 'No Exterior' },
@@ -126,8 +121,8 @@ class CuipService {
       ]
     },
     {
-      clave: 'experiencia_docente', numero: 8,
-      nombre: '8. EXPERIENCIA DOCENTE', tiene_excepcion: true,
+      clave: 'experiencia_docente', numero: 7,
+      nombre: '7. EXPERIENCIA DOCENTE', tiene_excepcion: true,
       campos: [
         { num: 1, nombre: 'Nombre del Curso (Reg.1)' },
         { num: 2, nombre: 'Nombre de la Institución (Reg.1)' },
@@ -142,8 +137,8 @@ class CuipService {
       ]
     },
     {
-      clave: 'referencias_1', numero: 9,
-      nombre: '9. REFERENCIAS (Familiar y Pariente)', tiene_excepcion: false,
+      clave: 'referencias_1', numero: 8,
+      nombre: '8. REFERENCIAS (Familiar y Pariente)', tiene_excepcion: false,
       campos: [
         { num: 1, nombre: 'Apellido Paterno (Familiar)' },
         { num: 2, nombre: 'Apellido Materno (Familiar)' },
@@ -180,8 +175,8 @@ class CuipService {
       ]
     },
     {
-      clave: 'referencias_2', numero: 10,
-      nombre: '10. REFERENCIAS (Personal y Laboral)', tiene_excepcion: false,
+      clave: 'referencias_2', numero: 9,
+      nombre: '9. REFERENCIAS (Personal y Laboral)', tiene_excepcion: false,
       campos: [
         { num: 1, nombre: 'Apellido Paterno (Personal)' },
         { num: 2, nombre: 'Apellido Materno (Personal)' },
@@ -204,22 +199,21 @@ class CuipService {
         { num: 19, nombre: 'Nombre(s) (Laboral)' },
         { num: 20, nombre: 'Sexo (Laboral)' },
         { num: 21, nombre: 'Ocupación (Laboral)' },
-        { num: 22, nombre: 'Relación o Parentesco (Laboral)' },
-        { num: 23, nombre: 'Calle (Laboral)' },
-        { num: 24, nombre: 'No. Exterior (Laboral)' },
-        { num: 25, nombre: 'No. Interior (Laboral)' },
-        { num: 26, nombre: 'Colonia (Laboral)' },
-        { num: 27, nombre: 'Código Postal (Laboral)' },
-        { num: 28, nombre: 'Número Telefónico (Laboral)' },
-        { num: 29, nombre: 'País (Laboral)' },
-        { num: 30, nombre: 'Entidad Federativa (Laboral)' },
-        { num: 31, nombre: 'Municipio o Delegación (Laboral)' },
-        { num: 32, nombre: 'Ciudad o Población (Laboral)' }
+        { num: 22, nombre: 'Calle (Laboral)' },
+        { num: 23, nombre: 'No. Exterior (Laboral)' },
+        { num: 24, nombre: 'No. Interior (Laboral)' },
+        { num: 25, nombre: 'Colonia (Laboral)' },
+        { num: 26, nombre: 'Código Postal (Laboral)' },
+        { num: 27, nombre: 'Número Telefónico (Laboral)' },
+        { num: 28, nombre: 'País (Laboral)' },
+        { num: 29, nombre: 'Entidad Federativa (Laboral)' },
+        { num: 30, nombre: 'Municipio o Delegación (Laboral)' },
+        { num: 31, nombre: 'Ciudad o Población (Laboral)' }
       ]
     },
     {
-      clave: 'socioeconomico', numero: 11,
-      nombre: '11. SOCIOECONÓMICO', tiene_excepcion: false,
+      clave: 'socioeconomico', numero: 10,
+      nombre: '10. SOCIOECONÓMICO', tiene_excepcion: false,
       campos: [
         { num: 1, nombre: '¿Vive con su familia?' },
         { num: 2, nombre: 'Ingreso Familiar Adicional (Mensual)' },
@@ -235,8 +229,8 @@ class CuipService {
       ]
     },
     {
-      clave: 'conyuge_dependientes', numero: 12,
-      nombre: '12. CÓNYUGE Y DEPENDIENTES ECONÓMICOS', tiene_excepcion: false,
+      clave: 'conyuge_dependientes', numero: 11,
+      nombre: '11. CÓNYUGE Y DEPENDIENTES ECONÓMICOS', tiene_excepcion: false,
       campos: [
         { num: 1, nombre: 'Apellido Paterno (Reg.1)' },
         { num: 2, nombre: 'Apellido Materno (Reg.1)' },
@@ -249,23 +243,24 @@ class CuipService {
         { num: 9, nombre: 'Nombre(s) (Reg.2)' },
         { num: 10, nombre: 'Fecha de Nacimiento (Reg.2)' },
         { num: 11, nombre: 'Sexo (Reg.2)' },
-        { num: 12, nombre: 'Apellido Paterno (Reg.3)' },
-        { num: 13, nombre: 'Apellido Materno (Reg.3)' },
-        { num: 14, nombre: 'Nombre(s) (Reg.3)' },
-        { num: 15, nombre: 'Fecha de Nacimiento (Reg.3)' },
-        { num: 16, nombre: 'Sexo (Reg.3)' },
-        { num: 17, nombre: 'Parentesco (Reg.3)' },
-        { num: 18, nombre: 'Apellido Paterno (Reg.4)' },
-        { num: 19, nombre: 'Apellido Materno (Reg.4)' },
-        { num: 20, nombre: 'Nombre(s) (Reg.4)' },
-        { num: 21, nombre: 'Fecha de Nacimiento (Reg.4)' },
-        { num: 22, nombre: 'Sexo (Reg.4)' },
-        { num: 23, nombre: 'Parentesco (Reg.4)' }
+        { num: 12, nombre: 'Parentesco (Reg.2)' },
+        { num: 13, nombre: 'Apellido Paterno (Reg.3)' },
+        { num: 14, nombre: 'Apellido Materno (Reg.3)' },
+        { num: 15, nombre: 'Nombre(s) (Reg.3)' },
+        { num: 16, nombre: 'Fecha de Nacimiento (Reg.3)' },
+        { num: 17, nombre: 'Sexo (Reg.3)' },
+        { num: 18, nombre: 'Parentesco (Reg.3)' },
+        { num: 19, nombre: 'Apellido Paterno (Reg.4)' },
+        { num: 20, nombre: 'Apellido Materno (Reg.4)' },
+        { num: 21, nombre: 'Nombre(s) (Reg.4)' },
+        { num: 22, nombre: 'Fecha de Nacimiento (Reg.4)' },
+        { num: 23, nombre: 'Sexo (Reg.4)' },
+        { num: 24, nombre: 'Parentesco (Reg.4)' }
       ]
     },
     {
-      clave: 'prestaciones', numero: 13,
-      nombre: '13. PRESTACIONES', tiene_excepcion: true,
+      clave: 'prestaciones', numero: 12,
+      nombre: '12. PRESTACIONES', tiene_excepcion: true,
       campos: [
         { num: 1, nombre: 'Tipo (Reg.1)' },
         { num: 2, nombre: 'Fecha (Reg.1)' },
@@ -278,8 +273,8 @@ class CuipService {
       ]
     },
     {
-      clave: 'armamento', numero: 14,
-      nombre: '14. ARMAMENTO ASIGNADO', tiene_excepcion: true,
+      clave: 'armamento', numero: 13,
+      nombre: '13. ARMAMENTO ASIGNADO', tiene_excepcion: true,
       campos: [
         { num: 1, nombre: 'No. Licencia Portación (Reg.1)' },
         { num: 2, nombre: 'No. Matrícula (Reg.1)' },
@@ -308,8 +303,8 @@ class CuipService {
       ]
     },
     {
-      clave: 'vehiculos', numero: 15,
-      nombre: '15. VEHÍCULOS ASIGNADOS', tiene_excepcion: true,
+      clave: 'vehiculos', numero: 14,
+      nombre: '14. VEHÍCULOS ASIGNADOS', tiene_excepcion: true,
       campos: [
         { num: 1, nombre: 'VIN' },
         { num: 2, nombre: 'Número de Motor' },
@@ -329,8 +324,8 @@ class CuipService {
       ]
     },
     {
-      clave: 'equipo_policial', numero: 16,
-      nombre: '16. EQUIPO POLICIAL ASIGNADO', tiene_excepcion: true,
+      clave: 'equipo_policial', numero: 15,
+      nombre: '15. EQUIPO POLICIAL ASIGNADO', tiene_excepcion: true,
       campos: [
         { num: 1, nombre: 'Tipo de Equipo' },
         { num: 2, nombre: 'Marca de Equipo' },
@@ -344,8 +339,8 @@ class CuipService {
       ]
     },
     {
-      clave: 'empleos_seg_pub_1', numero: 17,
-      nombre: '17. EMPLEOS EN SEGURIDAD PÚBLICA', tiene_excepcion: true,
+      clave: 'empleos_seg_pub_1', numero: 16,
+      nombre: '16. EMPLEOS EN SEGURIDAD PÚBLICA', tiene_excepcion: true,
       campos: [
         { num: 1, nombre: 'Dependencia' },
         { num: 2, nombre: 'Corporación' },
@@ -378,8 +373,8 @@ class CuipService {
       ]
     },
     {
-      clave: 'empleos_seg_pub_2', numero: 18,
-      nombre: '18. EMPLEOS EN SEGURIDAD PÚBLICA (Cont.)', tiene_excepcion: true,
+      clave: 'empleos_seg_pub_2', numero: 17,
+      nombre: '17. EMPLEOS EN SEGURIDAD PÚBLICA (Cont.)', tiene_excepcion: true,
       campos: [
         { num: 1, nombre: 'Dependencia' },
         { num: 2, nombre: 'Corporación' },
@@ -412,8 +407,8 @@ class CuipService {
       ]
     },
     {
-      clave: 'empleos_diversos', numero: 19,
-      nombre: '19. EMPLEOS DIVERSOS', tiene_excepcion: true,
+      clave: 'empleos_diversos', numero: 18,
+      nombre: '18. EMPLEOS DIVERSOS', tiene_excepcion: true,
       campos: [
         { num: 1, nombre: 'Empresa' },
         { num: 2, nombre: 'Calle y Número' },
@@ -433,8 +428,8 @@ class CuipService {
       ]
     },
     {
-      clave: 'actitudes_empleo', numero: 20,
-      nombre: '20. ACTITUDES HACIA EL EMPLEO', tiene_excepcion: false,
+      clave: 'actitudes_empleo', numero: 19,
+      nombre: '19. ACTITUDES HACIA EL EMPLEO', tiene_excepcion: false,
       campos: [
         { num: 1, nombre: '¿Por qué eligió este empleo?' },
         { num: 2, nombre: '¿Qué puesto desearía tener?' },
@@ -448,8 +443,8 @@ class CuipService {
       ]
     },
     {
-      clave: 'disciplina_laboral', numero: 21,
-      nombre: '21. DISCIPLINA LABORAL', tiene_excepcion: true,
+      clave: 'disciplina_laboral', numero: 20,
+      nombre: '20. DISCIPLINA LABORAL', tiene_excepcion: true,
       campos: [
         { num: 1, nombre: 'Tipo de Disciplina' },
         { num: 2, nombre: 'Subtipo Disciplina' },
@@ -457,12 +452,12 @@ class CuipService {
         { num: 4, nombre: 'Tipo' },
         { num: 5, nombre: 'Fecha de Inicio' },
         { num: 6, nombre: 'Fecha de Término' },
-        { num: 7, nombre: 'Duración de Licencia Médica' }
+        { num: 7, nombre: 'En caso de Licencia Médica: Duración' }
       ]
     },
     {
-      clave: 'capacitaciones_seg_pub', numero: 22,
-      nombre: '22. CAPACITACIONES: SEGURIDAD PÚBLICA', tiene_excepcion: true,
+      clave: 'capacitaciones_seg_pub', numero: 21,
+      nombre: '21. CAPACITACIONES: SEGURIDAD PÚBLICA', tiene_excepcion: true,
       campos: [
         { num: 1, nombre: 'Dependencia Responsable (Reg.1)' },
         { num: 2, nombre: 'Institución Capacitadora (Reg.1)' },
@@ -487,8 +482,8 @@ class CuipService {
       ]
     },
     {
-      clave: 'capacitacion_adicional', numero: 23,
-      nombre: '23. CAPACITACIÓN ADICIONAL', tiene_excepcion: true,
+      clave: 'capacitacion_adicional', numero: 22,
+      nombre: '22. CAPACITACIÓN ADICIONAL', tiene_excepcion: true,
       campos: [
         { num: 1, nombre: 'Institución o Empresa (Reg.1)' },
         { num: 2, nombre: 'Estudio o Curso (Reg.1)' },
@@ -509,8 +504,8 @@ class CuipService {
       ]
     },
     {
-      clave: 'idiomas_dialectos', numero: 24,
-      nombre: '24. CAPACITACIONES: IDIOMAS Y/O DIALECTOS', tiene_excepcion: true,
+      clave: 'idiomas_dialectos', numero: 23,
+      nombre: '23. CAPACITACIONES: IDIOMAS Y/O DIALECTOS', tiene_excepcion: true,
       campos: [
         { num: 1, nombre: 'Idioma o Dialecto (Reg.1)' },
         { num: 2, nombre: 'Lectura (%) (Reg.1)' },
@@ -523,8 +518,8 @@ class CuipService {
       ]
     },
     {
-      clave: 'habilidades_aptitudes', numero: 25,
-      nombre: '25. CAPACITACIONES: HABILIDADES Y APTITUDES', tiene_excepcion: true,
+      clave: 'habilidades_aptitudes', numero: 24,
+      nombre: '24. CAPACITACIONES: HABILIDADES Y APTITUDES', tiene_excepcion: true,
       campos: [
         { num: 1, nombre: 'Selección de Tipo (Reg.1)' },
         { num: 2, nombre: 'Especifique (Reg.1)' },
@@ -535,8 +530,8 @@ class CuipService {
       ]
     },
     {
-      clave: 'afiliacion_agrupaciones', numero: 26,
-      nombre: '26. CAPACITACIONES: AFILIACIÓN A AGRUPACIONES', tiene_excepcion: true,
+      clave: 'afiliacion_agrupaciones', numero: 25,
+      nombre: '25. CAPACITACIONES: AFILIACIÓN A AGRUPACIONES', tiene_excepcion: true,
       campos: [
         { num: 1, nombre: 'Nombre de Agrupación (Reg.1)' },
         { num: 2, nombre: 'Tipo de Agrupación (Reg.1)' },
@@ -549,8 +544,8 @@ class CuipService {
       ]
     },
     {
-      clave: 'sanciones_estimulos', numero: 27,
-      nombre: '27. SANCIONES / ESTÍMULOS', tiene_excepcion: true,
+      clave: 'sanciones_estimulos', numero: 26,
+      nombre: '26. SANCIONES / ESTÍMULOS', tiene_excepcion: true,
       campos: [
         { num: 1, nombre: 'Tipo (Reg.1)' },
         { num: 2, nombre: 'Determinación (Reg.1)' },
@@ -569,8 +564,8 @@ class CuipService {
       ]
     },
     {
-      clave: 'resoluciones_ministeriales', numero: 28,
-      nombre: '28. SANCIONES/ESTÍMULOS: RESOLUCIONES MINISTERIALES Y/O JUDICIALES', tiene_excepcion: true,
+      clave: 'resoluciones_ministeriales', numero: 27,
+      nombre: '27. SANCIONES/ESTÍMULOS: RESOLUCIONES MINISTERIALES Y/O JUDICIALES', tiene_excepcion: true,
       campos: [
         { num: 1, nombre: 'Institución Emisora' },
         { num: 2, nombre: 'Entidad Federativa' },
@@ -591,8 +586,8 @@ class CuipService {
       ]
     },
     {
-      clave: 'estimulos_recibidos', numero: 29,
-      nombre: '29. SANCIONES/ESTÍMULOS: ESTÍMULOS RECIBIDOS', tiene_excepcion: true,
+      clave: 'estimulos_recibidos', numero: 28,
+      nombre: '28. SANCIONES/ESTÍMULOS: ESTÍMULOS RECIBIDOS', tiene_excepcion: true,
       campos: [
         { num: 1, nombre: 'Tipo (Reg.1)' },
         { num: 2, nombre: 'Descripción (Reg.1)' },
@@ -605,8 +600,8 @@ class CuipService {
       ]
     },
     {
-      clave: 'cierre_firmas_sellos', numero: 30,
-      nombre: '30. CIERRE DE EXPEDIENTE: FIRMAS Y SELLOS', tiene_excepcion: false,
+      clave: 'cierre_firmas_sellos', numero: 29,
+      nombre: '29. CIERRE DE EXPEDIENTE: FIRMAS Y SELLOS', tiene_excepcion: false,
       campos: [
         { num: 1, nombre: 'Fecha de Llenado' },
         { num: 2, nombre: 'Sello de la Corporación' },
@@ -617,8 +612,8 @@ class CuipService {
       ]
     },
     {
-      clave: 'media_filiacion', numero: 31,
-      nombre: '31. IDENTIFICACIÓN: MEDIA FILIACIÓN', tiene_excepcion: false,
+      clave: 'media_filiacion', numero: 30,
+      nombre: '30. IDENTIFICACIÓN: MEDIA FILIACIÓN', tiene_excepcion: false,
       campos: [
         { num: 1, nombre: 'Tipo de Sangre y Factor RH' },
         { num: 2, nombre: 'Usa Anteojos' },
@@ -627,8 +622,8 @@ class CuipService {
       ]
     },
     {
-      clave: 'senas_particulares', numero: 32,
-      nombre: '32. SEÑAS PARTICULARES', tiene_excepcion: true,
+      clave: 'senas_particulares', numero: 31,
+      nombre: '31. SEÑAS PARTICULARES', tiene_excepcion: true,
       campos: [
         { num: 1, nombre: 'Cicatrices' },
         { num: 2, nombre: 'Tatuajes' },
@@ -639,8 +634,8 @@ class CuipService {
       ]
     },
     {
-      clave: 'ficha_fotografica', numero: 33,
-      nombre: '33. FICHA FOTOGRÁFICA', tiene_excepcion: false,
+      clave: 'ficha_fotografica', numero: 32,
+      nombre: '32. FICHA FOTOGRÁFICA', tiene_excepcion: false,
       campos: [
         { num: 1,  nombre: 'CUIP' },
         { num: 2,  nombre: 'Folio No.' },
@@ -664,8 +659,8 @@ class CuipService {
       ]
     },
     {
-      clave: 'registro_decadactilar', numero: 34,
-      nombre: '34. REGISTRO DECADACTILAR', tiene_excepcion: false,
+      clave: 'registro_decadactilar', numero: 33,
+      nombre: '33. REGISTRO DECADACTILAR', tiene_excepcion: false,
       campos: [
         { num: 1,  nombre: 'Nombre del Operador' },
         { num: 2,  nombre: 'Firma del Operador' },
@@ -726,17 +721,26 @@ class CuipService {
     return CuipService.generarCuipInicial();
   }
 
-  /**
-   * Parsear y migrar cuip_validacion: añade secciones nuevas si el JSON guardado
-   * corresponde a una versión anterior con menos secciones.
+ 
+ /**
+   * Parsear y migrar cuip_validacion: 
+   * - Añade secciones/campos nuevos.
+   * - Elimina secciones/campos obsoletos.
+   * - Fuerza la actualización de los nombres de los campos si cambiaron de orden.
    */
   static parsarYMigrarCuip(raw) {
     let cuip = raw;
     if (!cuip) return CuipService.generarCuipInicial();
     if (typeof cuip === 'string') cuip = JSON.parse(cuip);
 
+    // 1. ELIMINAR secciones obsoletas (ej. sección 3 antigua)
+    const clavesDefinidas = new Set(CuipService.CUIP_SECCIONES.map(s => s.clave));
+    cuip = cuip.filter(seccionGuardada => clavesDefinidas.has(seccionGuardada.clave));
+
+    // 2. AGREGAR SECCIONES faltantes
     const clavesGuardadas = new Set(cuip.map(s => s.clave));
     const seccionesFaltantes = CuipService.CUIP_SECCIONES.filter(s => !clavesGuardadas.has(s.clave));
+    
     if (seccionesFaltantes.length > 0) {
       const nuevas = seccionesFaltantes.map(seccion => ({
         clave: seccion.clave,
@@ -751,8 +755,52 @@ class CuipService {
         }))
       }));
       cuip = [...cuip, ...nuevas];
-      cuip.sort((a, b) => a.numero - b.numero);
     }
+
+    // 3. SINCRONIZAR CAMPOS dentro de cada sección
+    cuip = cuip.map(seccionGuardada => {
+      const seccionDefinida = CuipService.CUIP_SECCIONES.find(s => s.clave === seccionGuardada.clave);
+      
+      if (seccionDefinida) {
+        const numerosCamposGuardados = new Set(seccionGuardada.campos.map(c => String(c.num)));
+        const numerosCamposDefinidos = new Set(seccionDefinida.campos.map(c => String(c.num)));
+
+        // A) Eliminar campos guardados que ya no existen en la definición
+        seccionGuardada.campos = seccionGuardada.campos.filter(c => numerosCamposDefinidos.has(String(c.num)));
+
+        // B) ACTUALIZAR NOMBRES: Si el número ya existía, forzamos que tenga el nombre correcto actual
+        seccionGuardada.campos.forEach(campoGuardado => {
+          const campoDefinido = seccionDefinida.campos.find(c => String(c.num) === String(campoGuardado.num));
+          if (campoDefinido) {
+            campoGuardado.nombre = campoDefinido.nombre;
+          }
+        });
+
+        // C) Agregar campos nuevos que faltan en lo guardado
+        const camposFaltantes = seccionDefinida.campos.filter(c => !numerosCamposGuardados.has(String(c.num)));
+        
+        if (camposFaltantes.length > 0) {
+          const nuevosCampos = camposFaltantes.map(campo => ({
+            num: campo.num,
+            nombre: campo.nombre,
+            validado: null
+          }));
+          seccionGuardada.campos = [...seccionGuardada.campos, ...nuevosCampos];
+        }
+
+        // D) Mantener actualizados los nombres y números de la sección
+        seccionGuardada.numero = seccionDefinida.numero;
+        seccionGuardada.nombre = seccionDefinida.nombre;
+
+        // E) Ordenar los campos numéricamente
+        seccionGuardada.campos.sort((a, b) => Number(a.num) - Number(b.num));
+      }
+      return seccionGuardada;
+    });
+
+    // 4. ORDENAR las secciones finales
+    cuip.sort((a, b) => a.numero - b.numero);
+
     return cuip;
   }
 
