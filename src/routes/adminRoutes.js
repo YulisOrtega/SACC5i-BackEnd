@@ -50,7 +50,7 @@ const createUsuarioValidation = [
   
   body('rol')
     .optional()
-    .isIn(['super_admin', 'admin', 'direccion', 'analista', 'validador_c3', 'dependencia', 'operador_ccp']).withMessage('Rol inválido'),
+    .isIn(['super_admin', 'admin', 'direccion', 'analista', 'validador_c3', 'dependencia', 'operador_ccp', 'municipio', 'coordinador']).withMessage('Rol inválido'),
   
   body('region_id')
     .optional()
@@ -88,7 +88,7 @@ const updateUsuarioValidation = [
   
   body('rol')
     .optional()
-    .isIn(['super_admin', 'admin', 'direccion', 'analista', 'validador_c3', 'dependencia', 'operador_ccp']).withMessage('Rol inválido'),
+    .isIn(['super_admin', 'admin', 'direccion', 'analista', 'validador_c3', 'dependencia', 'operador_ccp', 'municipio', 'coordinador']).withMessage('Rol inválido'),
   
   body('region_id')
     .optional()

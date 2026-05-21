@@ -122,7 +122,7 @@ const initDatabase = async () => {
         extension VARCHAR(20) COMMENT 'Número de extensión del analista',
         region_id INT NULL COMMENT 'Región asignada (solo para analistas)',
         dependencia_id INT NULL COMMENT 'Dependencia asignada (solo para rol dependencia)',
-        rol ENUM('super_admin', 'admin', 'direccion', 'analista', 'validador_c3', 'dependencia', 'operador_ccp') NOT NULL DEFAULT 'analista',
+        rol ENUM('super_admin', 'admin', 'direccion', 'analista', 'validador_c3', 'dependencia', 'operador_ccp', 'municipio', 'coordinador') NOT NULL DEFAULT 'analista',
         activo BOOLEAN DEFAULT TRUE,
         password_changed BOOLEAN DEFAULT FALSE COMMENT 'FALSE obliga a cambiar contraseña',
         sesion_activa_id VARCHAR(64) NULL COMMENT 'Identificador de sesion JWT activa',
