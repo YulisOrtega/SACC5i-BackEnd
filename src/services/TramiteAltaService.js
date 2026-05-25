@@ -522,6 +522,11 @@ class TramiteAltaService {
       }
     }
 
+    if (filtros.municipio_id) {
+      where.push('t.municipio_id = ?');
+      params.push(filtros.municipio_id);
+    }
+
     const sql = `
       SELECT 
         p.id,
