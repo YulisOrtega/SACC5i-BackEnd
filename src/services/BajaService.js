@@ -129,7 +129,7 @@ class BajaService {
     };
   }
 
-  async listarDisponiblesBaja({ busqueda = '', pagina = 1, limit = 10, analistaId = null } = {}) {
+  async listarDisponiblesBaja({ busqueda = '', pagina = 1, limit = 10, analistaId = null, municipioId = null } = {}) {
     const connection = await pool.getConnection();
     try {
       const tablaFinalizados = await this._resolverTablaFinalizados(connection);
@@ -150,6 +150,9 @@ class BajaService {
       const parsedAnalistaId = Number(analistaId) || 0;
       const filtroAnalista = parsedAnalistaId > 0 ? 'AND t.usuario_analista_c5_id = ?' : '';
       const analistaParams = parsedAnalistaId > 0 ? [parsedAnalistaId] : [];
+      const parsedMunicipioId = Number(municipioId) || 0;
+      const filtroMunicipio = parsedMunicipioId > 0 ? 'AND t.municipio_id = ?' : '';
+      const municipioParams = parsedMunicipioId > 0 ? [parsedMunicipioId] : [];
 
       const [[{ total }]] = await connection.query(
         `SELECT COUNT(*) AS total
@@ -162,8 +165,9 @@ class BajaService {
             OR IFNULL(f.cuip, '') LIKE ?
             OR IFNULL(m.nombre, '') LIKE ?)
           ${filtroAnalista}
+          ${filtroMunicipio}
           ${filtroBaja}`,
-        [cleanSearch, like, like, like, like, ...analistaParams]
+        [cleanSearch, like, like, like, like, ...analistaParams, ...municipioParams]
       );
 
       const [rows] = await connection.query(
@@ -188,10 +192,11 @@ class BajaService {
             OR IFNULL(f.cuip, '') LIKE ?
             OR IFNULL(m.nombre, '') LIKE ?)
           ${filtroAnalista}
+          ${filtroMunicipio}
           ${filtroBaja}
          ORDER BY f.created_at DESC
          LIMIT ? OFFSET ?`,
-        [cleanSearch, like, like, like, like, ...analistaParams, parsedLimit, offset]
+        [cleanSearch, like, like, like, like, ...analistaParams, ...municipioParams, parsedLimit, offset]
       );
 
       return {
@@ -208,7 +213,7 @@ class BajaService {
     }
   }
 
-  async listarBajasRegistradas({ busqueda = '', pagina = 1, limit = 10, analistaId = null } = {}) {
+  async listarBajasRegistradas({ busqueda = '', pagina = 1, limit = 10, analistaId = null, municipioId = null } = {}) {
     const connection = await pool.getConnection();
     try {
       const tablaFinalizados = await this._resolverTablaFinalizados(connection);
@@ -240,6 +245,9 @@ class BajaService {
       const parsedAnalistaId = Number(analistaId) || 0;
       const filtroAnalista = parsedAnalistaId > 0 ? 'AND t.usuario_analista_c5_id = ?' : '';
       const analistaParams = parsedAnalistaId > 0 ? [parsedAnalistaId] : [];
+      const parsedMunicipioId = Number(municipioId) || 0;
+      const filtroMunicipio = parsedMunicipioId > 0 ? 'AND t.municipio_id = ?' : '';
+      const municipioParams = parsedMunicipioId > 0 ? [parsedMunicipioId] : [];
 
       const [[{ total }]] = await connection.query(
         `SELECT COUNT(*) AS total
@@ -255,8 +263,9 @@ class BajaService {
             OR IFNULL(m.nombre, '') LIKE ?
             OR IFNULL(f.baja_tipo, '') LIKE ?
             OR IFNULL(f.baja_motivo, '') LIKE ?)
-          ${filtroAnalista}`,
-        [cleanSearch, like, like, like, like, like, like, like, ...analistaParams]
+          ${filtroAnalista}
+          ${filtroMunicipio}`,
+        [cleanSearch, like, like, like, like, like, like, like, ...analistaParams, ...municipioParams]
       );
 
       const [rows] = await connection.query(
@@ -290,6 +299,7 @@ class BajaService {
             OR IFNULL(f.baja_tipo, '') LIKE ?
             OR IFNULL(f.baja_motivo, '') LIKE ?)
           ${filtroAnalista}
+          ${filtroMunicipio}
          ORDER BY IFNULL(f.baja_fecha, DATE(f.updated_at)) DESC, f.updated_at DESC
          LIMIT ? OFFSET ?`,
         [cleanSearch, like, like, like, like, like, like, like, ...analistaParams, parsedLimit, offset]

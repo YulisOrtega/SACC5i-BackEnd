@@ -88,6 +88,7 @@ import {
 } from '../controllers/consultaController.js';
 import { authMiddleware } from '../middlewares/authMiddleware.js';
 import { requireRole } from '../middlewares/roleMiddleware.js';
+import { municipioFilterMiddleware } from '../middlewares/municipioFilterMiddleware.js';
 import { validate } from '../middlewares/validationMiddleware.js';
 import { body, param } from 'express-validator';
 
@@ -468,6 +469,7 @@ router.post('/nueva-solicitud',
  */
 router.get('/mis-solicitudes', 
   requireRole('analista', 'admin', 'super_admin'), 
+  municipioFilterMiddleware,
   obtenerMisSolicitudes
 );
 
@@ -517,6 +519,7 @@ router.get('/mis-solicitudes',
  */
 router.get('/personas-pendientes-c3',
   requireRole('validador_c3'),
+  municipioFilterMiddleware,
   obtenerPersonasPendientesC3
 );
 
@@ -649,7 +652,8 @@ router.post('/persona/:persona_id/dictamen-c3',
  *         description: Solo analistas C5
  */
 router.get('/todas-personas-c5',
-  requireRole('analista', 'admin', 'super_admin', 'direccion'),
+  requireRole('admin', 'super_admin', 'direccion', 'coordinador'),
+  municipioFilterMiddleware,
   obtenerTodasLasPersonasC5
 );
 
@@ -1550,11 +1554,13 @@ router.get('/bajas/catalogo',
 
 router.get('/bajas/disponibles',
   requireRole('analista', 'admin', 'super_admin'),
+  municipioFilterMiddleware,
   listarDisponiblesBaja
 );
 
 router.get('/bajas',
   requireRole('analista', 'admin', 'super_admin', 'direccion'),
+  municipioFilterMiddleware,
   listarBajasRegistradas
 );
 

@@ -202,7 +202,7 @@ export const obtenerMisSolicitudes = async (req, res) => {
     const analistaId = req.userId;
     const filtros = {
       fase_actual: req.query.fase,
-      municipio_id: req.query.municipio_id,
+      municipio_id: req.municipio_id || req.query.municipio_id,
       estatus_id: req.query.estatus_id
     };
 
@@ -360,7 +360,7 @@ export const obtenerPersonasPendientesC3 = async (req, res) => {
   try {
     const filtros = {
       busqueda: req.query.busqueda,
-      municipio_id: req.query.municipio_id
+      municipio_id: req.municipio_id || req.query.municipio_id
     };
 
     const personas = await TramiteAltaService.obtenerPersonasPendientesC3(filtros);
@@ -546,7 +546,8 @@ export const obtenerTodasLasPersonasC5 = async (req, res) => {
       usuario_rol: req.userRole,
       busqueda: req.query.busqueda,
       fase_tramite: req.query.fase_tramite,
-      estatus_persona: req.query.estatus_persona
+      estatus_persona: req.query.estatus_persona,
+      municipio_id: req.municipio_id || req.query.municipio_id
     };
 
     const personas = await TramiteAltaService.obtenerTodasLasPersonasC5(filtros);
