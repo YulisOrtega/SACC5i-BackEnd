@@ -9,6 +9,7 @@ import repositorioDigitalRoutes from './repositorioDigitalRoutes.js';
 import oficiosRespuestaRoutes from './oficiosRespuestaRoutes.js';
 import direccionRoutes from './direccionRoutes.js';
 import { authMiddleware } from '../middlewares/authMiddleware.js';
+import documentosMunicipioRoutes from './documentosMunicipioRoutes.js';
 
 const router = express.Router();
 
@@ -38,6 +39,9 @@ router.use('/direccion', direccionRoutes);
 
 // Rutas de catálogos
 router.use('/catalogos', catalogosRoutes);
+
+// MÓDULO: Documentos de Municipios
+router.use('/documentos-municipio', documentosMunicipioRoutes);
 
 /**
  * @swagger

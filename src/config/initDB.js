@@ -312,6 +312,48 @@ const initDatabase = async () => {
     `);
     console.log('✅ Tabla oficios_respuesta_folders creada');
 
+    // ============================================
+    // TABLA: Documentos del Municipio (Carga de archivos)
+    // ============================================
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS documentos_municipio (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        municipio_id INT NOT NULL,
+        tipo_movimiento ENUM('Alta', 'Baja', 'Consulta') NOT NULL,
+        archivo_nombre VARCHAR(255) NOT NULL,
+        archivo_url VARCHAR(500) NOT NULL,
+        estatus ENUM('En revisión', 'Aprobado', 'Rechazado') DEFAULT 'En revisión',
+        fecha_carga TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT fk_documentos_municipio
+          FOREIGN KEY (municipio_id) REFERENCES municipios(id) ON DELETE CASCADE ON UPDATE CASCADE,
+        INDEX idx_doc_municipio (municipio_id),
+        INDEX idx_doc_estatus (estatus)
+      )
+    `);
+    console.log('✅ Tabla documentos_municipio creada');
+
+    // ============================================
+    // TABLA: Bitácora de Documentos (Historial de Cambios)
+    // ============================================
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS bitacora_documentos (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        documento_id INT NOT NULL,
+        usuario_id INT NOT NULL,
+        estatus_nuevo ENUM('En revisión', 'Aprobado', 'Rechazado') NOT NULL,
+        observaciones TEXT,
+        fecha_movimiento TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT fk_bitacora_documento
+          FOREIGN KEY (documento_id) REFERENCES documentos_municipio(id) ON DELETE CASCADE ON UPDATE CASCADE,
+        CONSTRAINT fk_bitacora_usuario
+          FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE RESTRICT ON UPDATE CASCADE,
+        INDEX idx_bitacora_doc (documento_id),
+        INDEX idx_bitacora_usuario (usuario_id)
+      )
+    `);
+    console.log('✅ Tabla bitacora_documentos creada');
+
+
     await connection.query(`
       CREATE TABLE IF NOT EXISTS oficios_respuesta_files (
         id INT PRIMARY KEY AUTO_INCREMENT,
