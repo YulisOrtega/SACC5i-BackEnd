@@ -527,6 +527,11 @@ class TramiteAltaService {
       params.push(filtros.municipio_id);
     }
 
+    if (filtros.municipio_nombre) {
+      where.push('m.nombre LIKE ?');
+      params.push(`%${filtros.municipio_nombre}%`);
+    }
+
     const sql = `
       SELECT 
         p.id,
