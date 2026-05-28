@@ -202,7 +202,7 @@ export const obtenerMisSolicitudes = async (req, res) => {
     const analistaId = req.userId;
     const filtros = {
       fase_actual: req.query.fase,
-      municipio_id: req.municipio_id || req.query.municipio_id,
+      municipio_id: req.query.municipio_id,
       estatus_id: req.query.estatus_id
     };
 
@@ -360,7 +360,7 @@ export const obtenerPersonasPendientesC3 = async (req, res) => {
   try {
     const filtros = {
       busqueda: req.query.busqueda,
-      municipio_id: req.municipio_id || req.query.municipio_id
+      municipio_id: req.query.municipio_id
     };
 
     const personas = await TramiteAltaService.obtenerPersonasPendientesC3(filtros);
@@ -536,7 +536,7 @@ export const obtenerHistorialC3 = async (req, res) => {
 // ============================================
 
 /**
- * C5 obtiene TODAS las personas de TODOS los trámites
+ * C5 obtiene TODAS las personas de TODOS los trámite
  * Vista unificada para ver el estatus de cada persona
  */
 export const obtenerTodasLasPersonasC5 = async (req, res) => {
@@ -547,7 +547,7 @@ export const obtenerTodasLasPersonasC5 = async (req, res) => {
       busqueda: req.query.busqueda,
       fase_tramite: req.query.fase_tramite,
       estatus_persona: req.query.estatus_persona,
-      municipio_id: req.municipio_id || req.query.municipio_id
+      municipio_nombre: req.query.municipio_nombre
     };
 
     const personas = await TramiteAltaService.obtenerTodasLasPersonasC5(filtros);
@@ -556,11 +556,14 @@ export const obtenerTodasLasPersonasC5 = async (req, res) => {
       success: true,
       data: personas,
       total: personas.length,
-      message: `${personas.length} personas encontradas`
+      message: personas.length === 0
+        ? 'No hay registros para el municipio seleccionado'
+        : `${personas.length} personas encontradas`
     });
 
   } catch (error) {
     console.error('Error al obtener personas C5:', error);
+
     res.status(500).json({
       success: false,
       message: error.message || 'Error al obtener personas',

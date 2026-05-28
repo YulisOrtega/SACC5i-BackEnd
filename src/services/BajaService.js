@@ -129,195 +129,211 @@ class BajaService {
     };
   }
 
-  async listarDisponiblesBaja({ busqueda = '', pagina = 1, limit = 10, analistaId = null, municipioId = null } = {}) {
-    const connection = await pool.getConnection();
-    try {
-      const tablaFinalizados = await this._resolverTablaFinalizados(connection);
-      if (!tablaFinalizados) {
-        return {
-          registros: [],
-          paginacion: { total: 0, totalPaginas: 1, pagina: Number(pagina), limit: Number(limit) }
-        };
-      }
-
-      const tieneIsBaja = await this._tablaFinalizadosTieneColumna(connection, tablaFinalizados, 'is_baja');
-      const parsedPage = Math.max(1, Number(pagina) || 1);
-      const parsedLimit = Math.max(1, Math.min(100, Number(limit) || 10));
-      const offset = (parsedPage - 1) * parsedLimit;
-      const cleanSearch = String(busqueda || '').trim();
-      const like = `%${cleanSearch}%`;
-      const filtroBaja = tieneIsBaja ? 'AND IFNULL(f.is_baja, 0) = 0' : '';
-      const parsedAnalistaId = Number(analistaId) || 0;
-      const filtroAnalista = parsedAnalistaId > 0 ? 'AND t.usuario_analista_c5_id = ?' : '';
-      const analistaParams = parsedAnalistaId > 0 ? [parsedAnalistaId] : [];
-      const parsedMunicipioId = Number(municipioId) || 0;
-      const filtroMunicipio = parsedMunicipioId > 0 ? 'AND t.municipio_id = ?' : '';
-      const municipioParams = parsedMunicipioId > 0 ? [parsedMunicipioId] : [];
-
-      const [[{ total }]] = await connection.query(
-        `SELECT COUNT(*) AS total
-         FROM ${tablaFinalizados} f
-         LEFT JOIN tramites_alta t ON t.id = f.tramite_alta_id
-         LEFT JOIN municipios m ON m.id = t.municipio_id
-         WHERE (? = ''
-            OR f.nombre_elemento LIKE ?
-            OR IFNULL(f.numero_oficio, '') LIKE ?
-            OR IFNULL(f.cuip, '') LIKE ?
-            OR IFNULL(m.nombre, '') LIKE ?)
-          ${filtroAnalista}
-          ${filtroMunicipio}
-          ${filtroBaja}`,
-        [cleanSearch, like, like, like, like, ...analistaParams, ...municipioParams]
-      );
-
-      const [rows] = await connection.query(
-        `SELECT
-           f.id,
-           f.tramite_alta_id,
-           f.persona_tramite_id,
-           f.nombre_elemento,
-           f.puesto_elemento,
-           f.numero_oficio,
-           f.fecha_termino,
-           f.cuip,
-           IFNULL(m.nombre, '') AS municipio_nombre,
-           f.created_at,
-           f.updated_at
-         FROM ${tablaFinalizados} f
-         LEFT JOIN tramites_alta t ON t.id = f.tramite_alta_id
-         LEFT JOIN municipios m ON m.id = t.municipio_id
-         WHERE (? = ''
-            OR f.nombre_elemento LIKE ?
-            OR IFNULL(f.numero_oficio, '') LIKE ?
-            OR IFNULL(f.cuip, '') LIKE ?
-            OR IFNULL(m.nombre, '') LIKE ?)
-          ${filtroAnalista}
-          ${filtroMunicipio}
-          ${filtroBaja}
-         ORDER BY f.created_at DESC
-         LIMIT ? OFFSET ?`,
-        [cleanSearch, like, like, like, like, ...analistaParams, ...municipioParams, parsedLimit, offset]
-      );
-
+async listarDisponiblesBaja({ busqueda = '', pagina = 1, limit = 10, analistaId = null, municipioId = null, municipioNombre = null } = {}) {
+  const connection = await pool.getConnection();
+  try {
+    const tablaFinalizados = await this._resolverTablaFinalizados(connection);
+    if (!tablaFinalizados) {
       return {
-        registros: rows || [],
-        paginacion: {
-          total,
-          totalPaginas: Math.max(1, Math.ceil(total / parsedLimit)),
-          pagina: parsedPage,
-          limit: parsedLimit
-        }
+        registros: [],
+        paginacion: { total: 0, totalPaginas: 1, pagina: Number(pagina), limit: Number(limit) }
       };
-    } finally {
-      connection.release();
     }
+
+    const tieneIsBaja = await this._tablaFinalizadosTieneColumna(connection, tablaFinalizados, 'is_baja');
+    const parsedPage = Math.max(1, Number(pagina) || 1);
+    const parsedLimit = Math.max(1, Math.min(100, Number(limit) || 10));
+    const offset = (parsedPage - 1) * parsedLimit;
+    const cleanSearch = String(busqueda || '').trim();
+    const like = `%${cleanSearch}%`;
+    const filtroBaja = tieneIsBaja ? 'AND IFNULL(f.is_baja, 0) = 0' : '';
+
+    const parsedAnalistaId = Number(analistaId) || 0;
+    const filtroAnalista = parsedAnalistaId > 0 ? 'AND t.usuario_analista_c5_id = ?' : '';
+    const analistaParams = parsedAnalistaId > 0 ? [parsedAnalistaId] : [];
+
+    const parsedMunicipioId = Number(municipioId) || 0;
+    const filtroMunicipio = parsedMunicipioId > 0 ? 'AND t.municipio_id = ?' : '';
+    const municipioParams = parsedMunicipioId > 0 ? [parsedMunicipioId] : [];
+
+    const cleanMunicipioNombre = String(municipioNombre || '').trim();
+    const filtroMunicipioNombre = cleanMunicipioNombre ? 'AND m.nombre LIKE ?' : '';
+    const municipioNombreParams = cleanMunicipioNombre ? [`%${cleanMunicipioNombre}%`] : [];
+
+    const [[{ total }]] = await connection.query(
+      `SELECT COUNT(*) AS total
+       FROM ${tablaFinalizados} f
+       LEFT JOIN tramites_alta t ON t.id = f.tramite_alta_id
+       LEFT JOIN municipios m ON m.id = t.municipio_id
+       WHERE (? = ''
+          OR f.nombre_elemento LIKE ?
+          OR IFNULL(f.numero_oficio, '') LIKE ?
+          OR IFNULL(f.cuip, '') LIKE ?
+          OR IFNULL(m.nombre, '') LIKE ?)
+        ${filtroAnalista}
+        ${filtroMunicipio}
+        ${filtroMunicipioNombre}
+        ${filtroBaja}`,
+      [cleanSearch, like, like, like, like, ...analistaParams, ...municipioParams, ...municipioNombreParams]
+    );
+
+    const [rows] = await connection.query(
+      `SELECT
+         f.id,
+         f.tramite_alta_id,
+         f.persona_tramite_id,
+         f.nombre_elemento,
+         f.puesto_elemento,
+         f.numero_oficio,
+         f.fecha_termino,
+         f.cuip,
+         IFNULL(m.nombre, '') AS municipio_nombre,
+         f.created_at,
+         f.updated_at
+       FROM ${tablaFinalizados} f
+       LEFT JOIN tramites_alta t ON t.id = f.tramite_alta_id
+       LEFT JOIN municipios m ON m.id = t.municipio_id
+       WHERE (? = ''
+          OR f.nombre_elemento LIKE ?
+          OR IFNULL(f.numero_oficio, '') LIKE ?
+          OR IFNULL(f.cuip, '') LIKE ?
+          OR IFNULL(m.nombre, '') LIKE ?)
+        ${filtroAnalista}
+        ${filtroMunicipio}
+        ${filtroMunicipioNombre}
+        ${filtroBaja}
+       ORDER BY f.created_at DESC
+       LIMIT ? OFFSET ?`,
+      [cleanSearch, like, like, like, like, ...analistaParams, ...municipioParams, ...municipioNombreParams, parsedLimit, offset]
+    );
+
+    return {
+      registros: rows || [],
+      paginacion: {
+        total,
+        totalPaginas: Math.max(1, Math.ceil(total / parsedLimit)),
+        pagina: parsedPage,
+        limit: parsedLimit
+      }
+    };
+  } finally {
+    connection.release();
   }
+}
 
-  async listarBajasRegistradas({ busqueda = '', pagina = 1, limit = 10, analistaId = null, municipioId = null } = {}) {
-    const connection = await pool.getConnection();
-    try {
-      const tablaFinalizados = await this._resolverTablaFinalizados(connection);
-      if (!tablaFinalizados) {
-        return {
-          registros: [],
-          paginacion: { total: 0, totalPaginas: 1, pagina: Number(pagina), limit: Number(limit) }
-        };
-      }
-
-      const tieneIsBaja = await this._tablaFinalizadosTieneColumna(connection, tablaFinalizados, 'is_baja');
-      const tieneBajaTipo = await this._tablaFinalizadosTieneColumna(connection, tablaFinalizados, 'baja_tipo');
-      const tieneBajaMotivo = await this._tablaFinalizadosTieneColumna(connection, tablaFinalizados, 'baja_motivo');
-      const tieneBajaFecha = await this._tablaFinalizadosTieneColumna(connection, tablaFinalizados, 'baja_fecha');
-      const tieneNumeroOficioMunicipio = await this._tablaFinalizadosTieneColumna(connection, tablaFinalizados, 'numero_oficio_municipio');
-
-      if (!tieneIsBaja || !tieneBajaTipo || !tieneBajaMotivo || !tieneBajaFecha || !tieneNumeroOficioMunicipio) {
-        return {
-          registros: [],
-          paginacion: { total: 0, totalPaginas: 1, pagina: Number(pagina) || 1, limit: Number(limit) || 10 }
-        };
-      }
-
-      const parsedPage = Math.max(1, Number(pagina) || 1);
-      const parsedLimit = Math.max(1, Math.min(100, Number(limit) || 10));
-      const offset = (parsedPage - 1) * parsedLimit;
-      const cleanSearch = String(busqueda || '').trim();
-      const like = `%${cleanSearch}%`;
-      const parsedAnalistaId = Number(analistaId) || 0;
-      const filtroAnalista = parsedAnalistaId > 0 ? 'AND t.usuario_analista_c5_id = ?' : '';
-      const analistaParams = parsedAnalistaId > 0 ? [parsedAnalistaId] : [];
-      const parsedMunicipioId = Number(municipioId) || 0;
-      const filtroMunicipio = parsedMunicipioId > 0 ? 'AND t.municipio_id = ?' : '';
-      const municipioParams = parsedMunicipioId > 0 ? [parsedMunicipioId] : [];
-
-      const [[{ total }]] = await connection.query(
-        `SELECT COUNT(*) AS total
-         FROM ${tablaFinalizados} f
-         LEFT JOIN tramites_alta t ON t.id = f.tramite_alta_id
-         LEFT JOIN municipios m ON m.id = t.municipio_id
-         WHERE IFNULL(f.is_baja, 0) = 1
-           AND (? = ''
-            OR f.nombre_elemento LIKE ?
-            OR IFNULL(f.numero_oficio, '') LIKE ?
-            OR IFNULL(f.numero_oficio_municipio, '') LIKE ?
-            OR IFNULL(f.cuip, '') LIKE ?
-            OR IFNULL(m.nombre, '') LIKE ?
-            OR IFNULL(f.baja_tipo, '') LIKE ?
-            OR IFNULL(f.baja_motivo, '') LIKE ?)
-          ${filtroAnalista}
-          ${filtroMunicipio}`,
-        [cleanSearch, like, like, like, like, like, like, like, ...analistaParams, ...municipioParams]
-      );
-
-      const [rows] = await connection.query(
-        `SELECT
-           f.id,
-           f.tramite_alta_id,
-           f.persona_tramite_id,
-           f.nombre_elemento,
-           f.puesto_elemento,
-           f.numero_oficio,
-           f.numero_oficio_municipio,
-           f.fecha_termino,
-           f.cuip,
-           IFNULL(m.nombre, '') AS municipio_nombre,
-           f.baja_tipo,
-           f.baja_motivo,
-           f.baja_fecha,
-           f.baja_observaciones,
-           f.baja_registrada_at,
-           f.updated_at
-         FROM ${tablaFinalizados} f
-         LEFT JOIN tramites_alta t ON t.id = f.tramite_alta_id
-         LEFT JOIN municipios m ON m.id = t.municipio_id
-         WHERE IFNULL(f.is_baja, 0) = 1
-           AND (? = ''
-            OR f.nombre_elemento LIKE ?
-            OR IFNULL(f.numero_oficio, '') LIKE ?
-            OR IFNULL(f.numero_oficio_municipio, '') LIKE ?
-            OR IFNULL(f.cuip, '') LIKE ?
-            OR IFNULL(m.nombre, '') LIKE ?
-            OR IFNULL(f.baja_tipo, '') LIKE ?
-            OR IFNULL(f.baja_motivo, '') LIKE ?)
-          ${filtroAnalista}
-          ${filtroMunicipio}
-         ORDER BY IFNULL(f.baja_fecha, DATE(f.updated_at)) DESC, f.updated_at DESC
-         LIMIT ? OFFSET ?`,
-        [cleanSearch, like, like, like, like, like, like, like, ...analistaParams, parsedLimit, offset]
-      );
-
+async listarBajasRegistradas({ busqueda = '', pagina = 1, limit = 10, analistaId = null, municipioId = null, municipioNombre = null } = {}) {
+  const connection = await pool.getConnection();
+  try {
+    const tablaFinalizados = await this._resolverTablaFinalizados(connection);
+    if (!tablaFinalizados) {
       return {
-        registros: rows || [],
-        paginacion: {
-          total,
-          totalPaginas: Math.max(1, Math.ceil(total / parsedLimit)),
-          pagina: parsedPage,
-          limit: parsedLimit
-        }
+        registros: [],
+        paginacion: { total: 0, totalPaginas: 1, pagina: Number(pagina), limit: Number(limit) }
       };
-    } finally {
-      connection.release();
     }
+
+    const tieneIsBaja = await this._tablaFinalizadosTieneColumna(connection, tablaFinalizados, 'is_baja');
+    const tieneBajaTipo = await this._tablaFinalizadosTieneColumna(connection, tablaFinalizados, 'baja_tipo');
+    const tieneBajaMotivo = await this._tablaFinalizadosTieneColumna(connection, tablaFinalizados, 'baja_motivo');
+    const tieneBajaFecha = await this._tablaFinalizadosTieneColumna(connection, tablaFinalizados, 'baja_fecha');
+    const tieneNumeroOficioMunicipio = await this._tablaFinalizadosTieneColumna(connection, tablaFinalizados, 'numero_oficio_municipio');
+
+    if (!tieneIsBaja || !tieneBajaTipo || !tieneBajaMotivo || !tieneBajaFecha || !tieneNumeroOficioMunicipio) {
+      return {
+        registros: [],
+        paginacion: { total: 0, totalPaginas: 1, pagina: Number(pagina) || 1, limit: Number(limit) || 10 }
+      };
+    }
+
+    const parsedPage = Math.max(1, Number(pagina) || 1);
+    const parsedLimit = Math.max(1, Math.min(100, Number(limit) || 10));
+    const offset = (parsedPage - 1) * parsedLimit;
+    const cleanSearch = String(busqueda || '').trim();
+    const like = `%${cleanSearch}%`;
+
+    const parsedAnalistaId = Number(analistaId) || 0;
+    const filtroAnalista = parsedAnalistaId > 0 ? 'AND t.usuario_analista_c5_id = ?' : '';
+    const analistaParams = parsedAnalistaId > 0 ? [parsedAnalistaId] : [];
+
+    const parsedMunicipioId = Number(municipioId) || 0;
+    const filtroMunicipio = parsedMunicipioId > 0 ? 'AND t.municipio_id = ?' : '';
+    const municipioParams = parsedMunicipioId > 0 ? [parsedMunicipioId] : [];
+
+    const cleanMunicipioNombre = String(municipioNombre || '').trim();
+    const filtroMunicipioNombre = cleanMunicipioNombre ? 'AND m.nombre LIKE ?' : '';
+    const municipioNombreParams = cleanMunicipioNombre ? [`%${cleanMunicipioNombre}%`] : [];
+
+    const [[{ total }]] = await connection.query(
+      `SELECT COUNT(*) AS total
+       FROM ${tablaFinalizados} f
+       LEFT JOIN tramites_alta t ON t.id = f.tramite_alta_id
+       LEFT JOIN municipios m ON m.id = t.municipio_id
+       WHERE IFNULL(f.is_baja, 0) = 1
+         AND (? = ''
+          OR f.nombre_elemento LIKE ?
+          OR IFNULL(f.numero_oficio, '') LIKE ?
+          OR IFNULL(f.numero_oficio_municipio, '') LIKE ?
+          OR IFNULL(f.cuip, '') LIKE ?
+          OR IFNULL(m.nombre, '') LIKE ?
+          OR IFNULL(f.baja_tipo, '') LIKE ?
+          OR IFNULL(f.baja_motivo, '') LIKE ?)
+        ${filtroAnalista}
+        ${filtroMunicipio}
+        ${filtroMunicipioNombre}`,
+      [cleanSearch, like, like, like, like, like, like, like, ...analistaParams, ...municipioParams, ...municipioNombreParams]
+    );
+
+    const [rows] = await connection.query(
+      `SELECT
+         f.id,
+         f.tramite_alta_id,
+         f.persona_tramite_id,
+         f.nombre_elemento,
+         f.puesto_elemento,
+         f.numero_oficio,
+         f.numero_oficio_municipio,
+         f.fecha_termino,
+         f.cuip,
+         IFNULL(m.nombre, '') AS municipio_nombre,
+         f.baja_tipo,
+         f.baja_motivo,
+         f.baja_fecha,
+         f.baja_observaciones,
+         f.baja_registrada_at,
+         f.updated_at
+       FROM ${tablaFinalizados} f
+       LEFT JOIN tramites_alta t ON t.id = f.tramite_alta_id
+       LEFT JOIN municipios m ON m.id = t.municipio_id
+       WHERE IFNULL(f.is_baja, 0) = 1
+         AND (? = ''
+          OR f.nombre_elemento LIKE ?
+          OR IFNULL(f.numero_oficio, '') LIKE ?
+          OR IFNULL(f.numero_oficio_municipio, '') LIKE ?
+          OR IFNULL(f.cuip, '') LIKE ?
+          OR IFNULL(m.nombre, '') LIKE ?
+          OR IFNULL(f.baja_tipo, '') LIKE ?
+          OR IFNULL(f.baja_motivo, '') LIKE ?)
+        ${filtroAnalista}
+        ${filtroMunicipio}
+        ${filtroMunicipioNombre}
+       ORDER BY IFNULL(f.baja_fecha, DATE(f.updated_at)) DESC, f.updated_at DESC
+       LIMIT ? OFFSET ?`,
+      [cleanSearch, like, like, like, like, like, like, like, ...analistaParams, ...municipioParams, ...municipioNombreParams, parsedLimit, offset]
+    );
+
+    return {
+      registros: rows || [],
+      paginacion: {
+        total,
+        totalPaginas: Math.max(1, Math.ceil(total / parsedLimit)),
+        pagina: parsedPage,
+        limit: parsedLimit
+      }
+    };
+  } finally {
+    connection.release();
   }
+}
 
   async registrarBaja(finalizadoId, data = {}, userId = null) {
     const connection = await pool.getConnection();

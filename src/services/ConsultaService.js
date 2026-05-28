@@ -98,90 +98,103 @@ class ConsultaService {
     }
   }
 
-  async listarPersonasFinalizadasPorMunicipio(municipioId, { busqueda = '', pagina = 1, limit = 10 } = {}) {
-    const connection = await pool.getConnection();
-    try {
-      const tablaFinalizados = await this._resolverTablaFinalizados(connection);
-      if (!tablaFinalizados) {
-        return {
-          municipio: { id: Number(municipioId) || 0, nombre: 'Sin municipio' },
-          registros: [],
-          paginacion: { total: 0, totalPaginas: 1, pagina: Number(pagina) || 1, limit: Number(limit) || 10 }
-        };
-      }
+async listarPersonasFinalizadasPorMunicipio(
+  municipioId,
+  { busqueda = '', pagina = 1, limit = 10, municipioNombre = '' } = {}
+) {
+  const connection = await pool.getConnection();
 
-      const parsedPage = Math.max(1, Number(pagina) || 1);
-      const parsedLimit = Math.max(1, Math.min(100, Number(limit) || 10));
-      const offset = (parsedPage - 1) * parsedLimit;
-      const cleanSearch = String(busqueda || '').trim();
-      const like = `%${cleanSearch}%`;
-      const condMunicipio = this._resolverCondicionMunicipio(municipioId);
+  try {
+    const tablaFinalizados = await this._resolverTablaFinalizados(connection);
 
-      const [[municipioInfo]] = await connection.query(
-        `SELECT
-           COALESCE(m.id, 0) AS municipio_id,
-           IFNULL(m.nombre, 'Sin municipio') AS municipio_nombre
-         FROM ${tablaFinalizados} f
-         LEFT JOIN tramites_alta t ON t.id = f.tramite_alta_id
-         LEFT JOIN municipios m ON m.id = t.municipio_id
-         WHERE ${condMunicipio.sql}
-         LIMIT 1`,
-        condMunicipio.params
-      );
-
-      const whereSearch = `(? = ''
-          OR IFNULL(pta.nombre, '') LIKE ?
-          OR IFNULL(pta.apellido_paterno, '') LIKE ?
-          OR IFNULL(pta.apellido_materno, '') LIKE ?
-          OR CONCAT(IFNULL(pta.nombre, ''), ' ', IFNULL(pta.apellido_paterno, ''), ' ', IFNULL(pta.apellido_materno, '')) LIKE ?)`;
-
-      const [[{ total }]] = await connection.query(
-        `SELECT COUNT(*) AS total
-         FROM ${tablaFinalizados} f
-         LEFT JOIN personas_tramite_alta pta ON pta.id = f.persona_tramite_id
-         LEFT JOIN tramites_alta t ON t.id = f.tramite_alta_id
-         LEFT JOIN municipios m ON m.id = t.municipio_id
-         WHERE ${condMunicipio.sql}
-           AND ${whereSearch}`,
-        [...condMunicipio.params, cleanSearch, like, like, like, like]
-      );
-
-      const [rows] = await connection.query(
-        `SELECT
-           f.id AS finalizado_id,
-           pta.id AS persona_id,
-           IFNULL(pta.nombre, f.nombre_elemento) AS nombre,
-           IFNULL(pta.apellido_paterno, '') AS apellido_paterno,
-           IFNULL(pta.apellido_materno, '') AS apellido_materno,
-           pta.fecha_nacimiento
-         FROM ${tablaFinalizados} f
-         LEFT JOIN personas_tramite_alta pta ON pta.id = f.persona_tramite_id
-         LEFT JOIN tramites_alta t ON t.id = f.tramite_alta_id
-         LEFT JOIN municipios m ON m.id = t.municipio_id
-         WHERE ${condMunicipio.sql}
-           AND ${whereSearch}
-         ORDER BY IFNULL(pta.apellido_paterno, ''), IFNULL(pta.apellido_materno, ''), IFNULL(pta.nombre, f.nombre_elemento)
-         LIMIT ? OFFSET ?`,
-        [...condMunicipio.params, cleanSearch, like, like, like, like, parsedLimit, offset]
-      );
-
+    if (!tablaFinalizados) {
       return {
-        municipio: {
-          id: municipioInfo?.municipio_id ?? (Number(municipioId) || 0),
-          nombre: municipioInfo?.municipio_nombre || 'Sin municipio'
-        },
-        registros: rows || [],
-        paginacion: {
-          total,
-          totalPaginas: Math.max(1, Math.ceil(total / parsedLimit)),
-          pagina: parsedPage,
-          limit: parsedLimit
-        }
+        municipio: { id: Number(municipioId) || 0, nombre: municipioNombre || 'Sin municipio' },
+        registros: [],
+        paginacion: { total: 0, totalPaginas: 1, pagina: Number(pagina) || 1, limit: Number(limit) || 10 }
       };
-    } finally {
-      connection.release();
     }
+
+    const parsedPage = Math.max(1, Number(pagina) || 1);
+    const parsedLimit = Math.max(1, Math.min(100, Number(limit) || 10));
+    const offset = (parsedPage - 1) * parsedLimit;
+    const cleanSearch = String(busqueda || '').trim();
+    const like = `%${cleanSearch}%`;
+
+    const cleanMunicipioNombre = String(municipioNombre || '').trim();
+
+    const condMunicipio = cleanMunicipioNombre
+      ? {
+          sql: 'm.nombre LIKE ?',
+          params: [`%${cleanMunicipioNombre}%`]
+        }
+      : this._resolverCondicionMunicipio(municipioId);
+
+    const [[municipioInfo]] = await connection.query(
+      `SELECT
+         COALESCE(m.id, 0) AS municipio_id,
+         IFNULL(m.nombre, 'Sin municipio') AS municipio_nombre
+       FROM ${tablaFinalizados} f
+       LEFT JOIN tramites_alta t ON t.id = f.tramite_alta_id
+       LEFT JOIN municipios m ON m.id = t.municipio_id
+       WHERE ${condMunicipio.sql}
+       LIMIT 1`,
+      condMunicipio.params
+    );
+
+    const whereSearch = `(? = ''
+      OR IFNULL(pta.nombre, '') LIKE ?
+      OR IFNULL(pta.apellido_paterno, '') LIKE ?
+      OR IFNULL(pta.apellido_materno, '') LIKE ?
+      OR CONCAT(IFNULL(pta.nombre, ''), ' ', IFNULL(pta.apellido_paterno, ''), ' ', IFNULL(pta.apellido_materno, '')) LIKE ?)`;
+
+    const [[{ total }]] = await connection.query(
+      `SELECT COUNT(*) AS total
+       FROM ${tablaFinalizados} f
+       LEFT JOIN personas_tramite_alta pta ON pta.id = f.persona_tramite_id
+       LEFT JOIN tramites_alta t ON t.id = f.tramite_alta_id
+       LEFT JOIN municipios m ON m.id = t.municipio_id
+       WHERE ${condMunicipio.sql}
+         AND ${whereSearch}`,
+      [...condMunicipio.params, cleanSearch, like, like, like, like]
+    );
+
+    const [rows] = await connection.query(
+      `SELECT
+         f.id AS finalizado_id,
+         pta.id AS persona_id,
+         IFNULL(pta.nombre, f.nombre_elemento) AS nombre,
+         IFNULL(pta.apellido_paterno, '') AS apellido_paterno,
+         IFNULL(pta.apellido_materno, '') AS apellido_materno,
+         pta.fecha_nacimiento
+       FROM ${tablaFinalizados} f
+       LEFT JOIN personas_tramite_alta pta ON pta.id = f.persona_tramite_id
+       LEFT JOIN tramites_alta t ON t.id = f.tramite_alta_id
+       LEFT JOIN municipios m ON m.id = t.municipio_id
+       WHERE ${condMunicipio.sql}
+         AND ${whereSearch}
+       ORDER BY IFNULL(pta.apellido_paterno, ''), IFNULL(pta.apellido_materno, ''), IFNULL(pta.nombre, f.nombre_elemento)
+       LIMIT ? OFFSET ?`,
+      [...condMunicipio.params, cleanSearch, like, like, like, like, parsedLimit, offset]
+    );
+
+    return {
+      municipio: {
+        id: municipioInfo?.municipio_id ?? (Number(municipioId) || 0),
+        nombre: municipioInfo?.municipio_nombre || cleanMunicipioNombre || 'Sin municipio'
+      },
+      registros: rows || [],
+      paginacion: {
+        total,
+        totalPaginas: Math.max(1, Math.ceil(total / parsedLimit)),
+        pagina: parsedPage,
+        limit: parsedLimit
+      }
+    };
+  } finally {
+    connection.release();
   }
+}
 
   async exportarExcelPersonasMunicipio(municipioId, { busqueda = '', ids = [] } = {}) {
     const connection = await pool.getConnection();

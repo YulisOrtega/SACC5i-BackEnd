@@ -12,13 +12,16 @@ export const obtenerCatalogoBajas = async (req, res) => {
 export const listarDisponiblesBaja = async (req, res) => {
   try {
     const { busqueda = '', pagina = 1, limit = 10, analista_id = null } = req.query;
+
     const data = await BajaService.listarDisponiblesBaja({
       busqueda,
       pagina,
       limit,
       analistaId: analista_id,
-      municipioId: req.municipio_id || null
+      municipioId: req.query.municipio_id || req.municipio_id || null,
+      municipioNombre: req.query.municipio_nombre || null
     });
+
     res.json({ success: true, data });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -28,13 +31,16 @@ export const listarDisponiblesBaja = async (req, res) => {
 export const listarBajasRegistradas = async (req, res) => {
   try {
     const { busqueda = '', pagina = 1, limit = 10, analista_id = null } = req.query;
+
     const data = await BajaService.listarBajasRegistradas({
       busqueda,
       pagina,
       limit,
       analistaId: analista_id,
-      municipioId: req.municipio_id || null
+      municipioId: req.query.municipio_id || req.municipio_id || null,
+      municipioNombre: req.query.municipio_nombre || null
     });
+
     res.json({ success: true, data });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });

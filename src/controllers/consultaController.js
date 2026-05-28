@@ -13,12 +13,18 @@ export const listarMunicipiosConsulta = async (req, res) => {
 export const listarPersonasConsultaPorMunicipio = async (req, res) => {
   try {
     const { municipioId } = req.params;
-    const { busqueda = '', pagina = 1, limit = 10 } = req.query;
-    const data = await ConsultaService.listarPersonasFinalizadasPorMunicipio(Number(municipioId), {
-      busqueda,
-      pagina,
-      limit
-    });
+    const { busqueda = '', pagina = 1, limit = 10, municipio_nombre = '' } = req.query;
+
+    const data = await ConsultaService.listarPersonasFinalizadasPorMunicipio(
+      municipioId ? Number(municipioId) : null,
+      {
+        busqueda,
+        pagina,
+        limit,
+        municipioNombre: municipio_nombre
+      }
+    );
+
     res.json({ success: true, data });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
