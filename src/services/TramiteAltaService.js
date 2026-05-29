@@ -676,7 +676,7 @@ class TramiteAltaService {
     }
     // admin y super_admin ven todo
 
-    if (filtros.analista_id && ['admin', 'super_admin', 'direccion'].includes(filtros.usuario_rol)) {
+    if (filtros.analista_id && ['admin', 'super_admin', 'coordinador', 'direccion'].includes(filtros.usuario_rol)) {
       where.push('t.usuario_analista_c5_id = ?');
       params.push(Number(filtros.analista_id));
     }

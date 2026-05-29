@@ -832,7 +832,7 @@ router.get('/c3/:id',
  *         description: Lista paginada de personas rechazadas
  */
 router.get('/personas-rechazadas',
-  requireRole('analista', 'admin', 'super_admin', 'direccion'),
+  requireRole('analista', 'admin', 'super_admin', 'coordinador' ,'direccion'),
   obtenerPersonasRechazadas
 );
 
@@ -1435,13 +1435,13 @@ router.post('/cuip/:persona_id/aprobar-cita',
 
 // Estadísticas de citas (debe ir antes de /citas para no conflictar)
 router.get('/citas/stats',
-  requireRole('analista', 'admin', 'super_admin', 'direccion'),
+  requireRole('analista', 'admin', 'super_admin', 'direccion', 'coordinador'),
   getEstadisticasCitas
 );
 
 // Listar citas con filtros
 router.get('/citas',
-  requireRole('analista', 'admin', 'super_admin', 'direccion'),
+  requireRole('analista', 'admin', 'super_admin', 'direccion', 'coordinador'),
   listarCitas
 );
 
@@ -1458,7 +1458,7 @@ router.patch('/citas/:id/estado',
 );
 
 router.get('/citas/:id/bitacora',
-  requireRole('analista', 'admin', 'super_admin', 'direccion'),
+  requireRole('analista', 'admin', 'super_admin', 'direccion', 'coordinador'),
   obtenerBitacoraCita
 );
 
@@ -1500,7 +1500,7 @@ router.patch('/citas/:id/finalizar-flujo',
 );
 
 router.get('/finalizados',
-  requireRole('analista', 'admin', 'super_admin', 'direccion'),
+  requireRole('analista', 'admin', 'super_admin', 'direccion', 'coordinador'),
   listarFinalizados
 );
 
@@ -1521,15 +1521,14 @@ router.post('/finalizados/:id/acuse',
   subirAcuseFinalizado
 );
 
-router.post('/finalizados/:id/acuse-persona',
-  requireRole('analista', 'admin', 'super_admin'),
-  uploadAcuse.single('file'),
-  subirAcusePersonaFinalizado
+router.get('/finalizados/:id/constancia/view',
+  requireRole('analista', 'admin', 'super_admin', 'direccion', 'coordinador'),
+  verConstanciaFinalizado
 );
 
-router.get('/finalizados/:id/constancia/view',
-  requireRole('analista', 'admin', 'super_admin', 'direccion'),
-  verConstanciaFinalizado
+router.get('/finalizados/:id/acuse/view',
+  requireRole('analista', 'admin', 'super_admin', 'direccion', 'coordinador'),
+  verAcusePersonaFinalizado
 );
 
 router.get('/finalizados/:id/acuse/view',
@@ -1559,7 +1558,7 @@ router.get('/bajas/disponibles',
 );
 
 router.get('/bajas',
-  requireRole('analista', 'admin', 'super_admin', 'direccion'),
+  requireRole('analista', 'admin', 'super_admin', 'direccion', 'coordinador'),
   municipioFilterMiddleware,
   listarBajasRegistradas
 );
@@ -1579,7 +1578,7 @@ router.post('/bajas/registrar',
 );
 
 router.get('/bajas/editables',
-  requireRole('analista', 'admin', 'super_admin', 'direccion'),
+  requireRole('analista', 'admin', 'super_admin', 'direccion', 'coordinador'),
   listarBajasEditables
 );
 
@@ -1626,17 +1625,17 @@ router.delete('/bajas/editables/:id',
 );
 
 router.get('/consulta/municipios',
-  requireRole('analista', 'admin', 'super_admin', 'dependencia', 'direccion'),
+  requireRole('analista', 'admin', 'super_admin', 'dependencia', 'direccion', 'coordinador'),
   listarMunicipiosConsulta
 );
 
 router.get('/consulta/municipios/:municipioId/personas',
-  requireRole('analista', 'admin', 'super_admin', 'dependencia', 'direccion'),
+  requireRole('analista', 'admin', 'super_admin', 'dependencia', 'direccion', 'coordinador'),
   listarPersonasConsultaPorMunicipio
 );
 
 router.get('/consulta/municipios/:municipioId/personas/exportar',
-  requireRole('analista', 'admin', 'super_admin', 'dependencia', 'direccion'),
+  requireRole('analista', 'admin', 'super_admin', 'dependencia', 'direccion', 'coordinador'),
   exportarExcelConsultaMunicipio
 );
 

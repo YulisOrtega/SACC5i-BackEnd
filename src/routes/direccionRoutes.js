@@ -8,6 +8,6 @@ const router = express.Router();
 router.use(authMiddleware);
 
 // Panel unificado de solo lectura para Direccion.
-router.get('/panel', requireRole('direccion', 'admin', 'super_admin'), obtenerPanelDireccion);
+router.get('/panel', requireRole('direccion', 'admin', 'super_admin', 'coordinador'), obtenerPanelDireccion);
 
 export default router;

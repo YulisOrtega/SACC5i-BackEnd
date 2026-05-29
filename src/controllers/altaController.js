@@ -715,33 +715,39 @@ export const rechazarPersona = async (req, res) => {
  */
 export const obtenerPersonasRechazadas = async (req, res) => {
   try {
-    const filtros = {
-      usuario_id: req.userId,
-      usuario_rol: req.userRole,
-      analista_id: req.query.analista_id,
-      fecha_inicio: req.query.fecha_inicio,
-      fecha_fin: req.query.fecha_fin,
-      busqueda: req.query.busqueda,
-      etapa_rechazo: req.query.etapa_rechazo,
-      page: req.query.page,
-      limit: req.query.limit
-    };
+    const {
+      busqueda = '',
+      fecha_inicio = '',
+      fecha_fin = '',
+      etapa_rechazo = '',
+      page = 1,
+      limit = 15,
+      analista_id = null
+    } = req.query;
 
-    const resultado = await TramiteAltaService.obtenerPersonasRechazadas(filtros);
+    const data = await TramiteAltaService.obtenerPersonasRechazadas({
+      busqueda,
+      fecha_inicio,
+      fecha_fin,
+      etapa_rechazo,
+      page,
+      limit,
+      analista_id,
+
+      usuario_id: req.userId,
+      usuario_rol: req.user?.rol || req.rol || req.userRole || req.usuario?.rol
+    });
 
     res.json({
       success: true,
-      data: resultado.personas,
-      paginacion: resultado.paginacion,
-      message: `${resultado.paginacion.total} persona(s) rechazada(s) encontrada(s)`
+      data: data.personas || [],
+      paginacion: data.paginacion || {}
     });
-
   } catch (error) {
     console.error('Error al obtener personas rechazadas:', error);
     res.status(500).json({
       success: false,
-      message: error.message || 'Error al obtener personas rechazadas',
-      error: error.message
+      message: 'Error al obtener personas rechazadas'
     });
   }
 };
