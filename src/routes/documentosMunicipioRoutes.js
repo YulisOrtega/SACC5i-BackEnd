@@ -63,6 +63,65 @@ const rastrearInfo = async (req) => {
     };
 };
 
+const obtenerRegionDelAnalista = async (req) => {
+  const usuarioActivo = req.usuario || req.user || {};
+  let usuarioId = usuarioActivo.id || req.userId || null;
+
+  if (!usuarioId) {
+    const authHeader = req?.headers?.authorization;
+    const tokenCrudo = authHeader ? authHeader.split(' ')[1] : null;
+
+    if (tokenCrudo) {
+      const payload = jwt.decode(tokenCrudo);
+      usuarioId = payload?.id || payload?.usuario_id || payload?.id_usuario || null;
+    }
+  }
+
+  if (!usuarioId) {
+    throw new Error('No se pudo identificar al usuario analista');
+  }
+
+  const [usuarios] = await pool.query(
+    `
+    SELECT id, rol, region_id
+    FROM usuarios
+    WHERE id = ?
+    LIMIT 1
+    `,
+    [usuarioId]
+  );
+
+  if (usuarios.length === 0) {
+    throw new Error('Usuario no encontrado');
+  }
+
+  const usuario = usuarios[0];
+  const rol = String(usuario.rol || '').toLowerCase();
+
+  if (['admin', 'super_admin', 'direccion'].includes(rol)) {
+    return {
+      filtrarPorRegion: false,
+      region_id: null
+    };
+  }
+
+  if (rol === 'analista') {
+    if (!usuario.region_id) {
+      throw new Error('El analista no tiene una región asignada');
+    }
+
+    return {
+      filtrarPorRegion: true,
+      region_id: usuario.region_id
+    };
+  }
+
+  return {
+    filtrarPorRegion: false,
+    region_id: null
+  };
+};
+
 // ==========================================
 // RUTAS PARA EL MUNICIPIO
 // ==========================================
@@ -125,16 +184,39 @@ router.get('/:id/archivo', requireRole('analista', 'admin', 'super_admin', 'dire
 
 router.get('/pendientes', requireRole('analista', 'admin', 'super_admin', 'direccion'), async (req, res) => {
   try {
+    const regionInfo = await obtenerRegionDelAnalista(req);
+
+    const where = ["d.estatus = 'En revisión'"];
+    const params = [];
+
+    if (regionInfo.filtrarPorRegion) {
+      where.push('m.region_id = ?');
+      params.push(regionInfo.region_id);
+    }
+
     const [pendientes] = await pool.query(`
-      SELECT d.id, d.municipio_id, m.nombre as municipio_nombre, d.tipo_movimiento, d.archivo_nombre, d.estatus, d.fecha_carga
+      SELECT 
+        d.id,
+        d.municipio_id,
+        m.nombre AS municipio_nombre,
+        m.region_id,
+        d.tipo_movimiento,
+        d.archivo_nombre,
+        d.estatus,
+        d.fecha_carga
       FROM documentos_municipio d
-      LEFT JOIN municipios m ON d.municipio_id = m.id
-      WHERE d.estatus = 'En revisión'
+      INNER JOIN municipios m ON d.municipio_id = m.id
+      WHERE ${where.join(' AND ')}
       ORDER BY d.fecha_carga ASC
-    `);
+    `, params);
+
     res.json({ success: true, data: pendientes });
   } catch (error) {
-    res.status(500).json({ success: false, message: 'Error al consultar pendientes' });
+    console.error("ERROR AL CONSULTAR PENDIENTES:", error);
+    res.status(500).json({ 
+      success: false, 
+      message: error.message || 'Error al consultar pendientes' 
+    });
   }
 });
 
@@ -185,16 +267,39 @@ router.get('/:id/historial', requireRole('municipio', 'analista', 'admin', 'supe
 // Obtener la tabla de documentos YA evaluados (Historial del Analista)
 router.get('/evaluados', requireRole('analista', 'admin', 'super_admin', 'direccion'), async (req, res) => {
   try {
+    const regionInfo = await obtenerRegionDelAnalista(req);
+
+    const where = ["d.estatus != 'En revisión'"];
+    const params = [];
+
+    if (regionInfo.filtrarPorRegion) {
+      where.push('m.region_id = ?');
+      params.push(regionInfo.region_id);
+    }
+
     const [evaluados] = await pool.query(`
-      SELECT d.id, d.municipio_id, m.nombre as municipio_nombre, d.tipo_movimiento, d.archivo_nombre, d.estatus, d.fecha_carga
+      SELECT 
+        d.id,
+        d.municipio_id,
+        m.nombre AS municipio_nombre,
+        m.region_id,
+        d.tipo_movimiento,
+        d.archivo_nombre,
+        d.estatus,
+        d.fecha_carga
       FROM documentos_municipio d
-      LEFT JOIN municipios m ON d.municipio_id = m.id
-      WHERE d.estatus != 'En revisión'
+      INNER JOIN municipios m ON d.municipio_id = m.id
+      WHERE ${where.join(' AND ')}
       ORDER BY d.fecha_carga DESC
-    `);
+    `, params);
+
     res.json({ success: true, data: evaluados });
   } catch (error) {
-    res.status(500).json({ success: false, message: 'Error al consultar documentos evaluados' });
+    console.error("ERROR AL CONSULTAR EVALUADOS:", error);
+    res.status(500).json({ 
+      success: false, 
+      message: error.message || 'Error al consultar documentos evaluados' 
+    });
   }
 });
 
