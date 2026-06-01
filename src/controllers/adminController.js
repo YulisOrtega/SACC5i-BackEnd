@@ -539,7 +539,7 @@ export const deleteUsuario = async (req, res) => {
 };
 
 // Borrar todos los registros operativos asociados a un analista (solo Super Admin)
-export const purgeAnalistaRegistros = async (req, res) => {
+/*export const purgeAnalistaRegistros = async (req, res) => {
   const connection = await pool.getConnection();
 
   try {
@@ -663,6 +663,175 @@ export const purgeAnalistaRegistros = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Error al limpiar registros del analista',
+      error: error.message
+    });
+  } finally {
+    connection.release();
+  }
+};*/
+// Borrar todos los registros operativos asociados a un usuario (Analista o Municipio)
+export const purgeUsuarioRegistros = async (req, res) => {
+  const connection = await pool.getConnection();
+  try {
+    const targetId = Number(req.params.id);
+
+    if (!Number.isInteger(targetId) || targetId <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'ID de usuario invalido'
+      });
+    }
+
+    // Agregamos municipio_id a la consulta para saber qué documentos borrar
+    const [users] = await connection.query(
+      'SELECT id, usuario, nombre_completo, rol, activo, municipio_id FROM usuarios WHERE id = ?',
+      [targetId]
+    );
+
+    if (users.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Usuario no encontrado'
+      });
+    }
+
+    const targetUser = users[0];
+
+    // Validamos que solo aplique a estos dos roles
+    if (targetUser.rol !== 'analista' && targetUser.rol !== 'municipio') {
+      return res.status(400).json({
+        success: false,
+        message: 'La limpieza de registros solo aplica a usuarios con rol analista o municipio'
+      });
+    }
+
+    await connection.beginTransaction();
+
+    let totalEliminados = 0;
+    let resumenAntes = {};
+
+    // ==========================================
+    // LÓGICA DE BORRADO PARA ANALISTAS
+    // ==========================================
+    if (targetUser.rol === 'analista') {
+      resumenAntes = await obtenerResumenRegistrosAnalista(connection, targetId);
+      totalEliminados = Object.values(resumenAntes)
+        .reduce((acc, value) => acc + Number(value || 0), 0);
+
+      if (totalEliminados > 0) {
+        await safeDeleteQuery(connection, `
+          DELETE f FROM finalizados f
+          INNER JOIN tramites_alta t ON t.id = f.tramite_alta_id
+          WHERE t.usuario_analista_c5_id = ?
+        `, [targetId]);
+        await safeDeleteQuery(connection, `
+          DELETE c FROM citas_biometricas c
+          INNER JOIN tramites_alta t ON t.id = c.tramite_alta_id
+          WHERE t.usuario_analista_c5_id = ?
+        `, [targetId]);
+        await safeDeleteQuery(connection, `
+          DELETE h FROM historial_tramites_alta h
+          INNER JOIN tramites_alta t ON t.id = h.tramite_alta_id
+          WHERE t.usuario_analista_c5_id = ?
+        `, [targetId]);
+        await safeDeleteQuery(connection, `
+          DELETE p FROM personas_tramite_alta p
+          INNER JOIN tramites_alta t ON t.id = p.tramite_alta_id
+          WHERE t.usuario_analista_c5_id = ?
+        `, [targetId]);
+        await safeDeleteQuery(connection, `
+          DELETE FROM tramites_alta
+          WHERE usuario_analista_c5_id = ?
+        `, [targetId]);
+        await safeDeleteQuery(connection, `
+          DELETE FROM analista_municipios_dashboard
+          WHERE usuario_analista_id = ?
+        `, [targetId]);
+      }
+    } 
+    // ==========================================
+    // LÓGICA DE BORRADO PARA MUNICIPIOS
+    // ==========================================
+    else if (targetUser.rol === 'municipio') {
+      if (!targetUser.municipio_id) {
+        await connection.rollback();
+        return res.status(400).json({
+          success: false,
+          message: 'Este usuario no tiene un municipio enlazado para borrar sus documentos.'
+        });
+      }
+
+      // Contar documentos a borrar
+      const [countDocs] = await connection.query(
+        'SELECT COUNT(*) as total FROM documentos_municipio WHERE municipio_id = ?', 
+        [targetUser.municipio_id]
+      );
+      totalEliminados = countDocs[0].total;
+      resumenAntes = { documentos_municipio: totalEliminados };
+
+      if (totalEliminados > 0) {
+        // 1. Borrar bitácora asociada a los documentos de este municipio
+        await safeDeleteQuery(connection, `
+          DELETE b FROM bitacora_documentos b
+          INNER JOIN documentos_municipio d ON b.documento_id = d.id
+          WHERE d.municipio_id = ?
+        `, [targetUser.municipio_id]);
+
+        // 2. Borrar los documentos
+        await safeDeleteQuery(connection, `
+          DELETE FROM documentos_municipio WHERE municipio_id = ?
+        `, [targetUser.municipio_id]);
+      }
+    }
+
+    // SI NO HAY NADA QUE BORRAR
+    if (totalEliminados === 0) {
+      await connection.rollback();
+      return res.json({
+        success: true,
+        message: 'El usuario no tiene registros asociados para eliminar',
+        data: {
+          usuario: {
+            id: targetUser.id,
+            usuario: targetUser.usuario,
+            nombre_completo: targetUser.nombre_completo,
+            rol: targetUser.rol,
+            activo: Boolean(targetUser.activo)
+          },
+          eliminados: resumenAntes,
+          total_eliminados: 0
+        }
+      });
+    }
+
+    await connection.commit();
+
+    return res.json({
+      success: true,
+      message: 'Registros del usuario eliminados exitosamente',
+      data: {
+        usuario: {
+          id: targetUser.id,
+          usuario: targetUser.usuario,
+          nombre_completo: targetUser.nombre_completo,
+          rol: targetUser.rol,
+          activo: Boolean(targetUser.activo)
+        },
+        eliminados: resumenAntes,
+        total_eliminados: totalEliminados
+      }
+    });
+
+  } catch (error) {
+    try {
+      await connection.rollback();
+    } catch (rollbackError) {
+      // Ignorar
+    }
+    console.error('Error al limpiar registros del usuario:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error al limpiar registros del usuario',
       error: error.message
     });
   } finally {

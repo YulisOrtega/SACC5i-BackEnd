@@ -6,7 +6,7 @@ import {
   createUsuario,
   updateUsuario,
   deleteUsuario,
-  purgeAnalistaRegistros,
+  purgeUsuarioRegistros,
   deactivateUsuario,
   activateUsuario,
   resetPassword,
@@ -315,7 +315,8 @@ router.delete('/usuarios/:id', requireSuperAdmin, deleteUsuario);
  *       400:
  *         description: Operacion valida solo para usuarios con rol analista
  */
-router.delete('/usuarios/:id/registros-analista', requireSuperAdmin, purgeAnalistaRegistros);
+
+router.delete('/usuarios/:id/registros', requireSuperAdmin, purgeUsuarioRegistros);
 
 /**
  * @swagger
