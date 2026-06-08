@@ -225,7 +225,23 @@ router.put('/:id/evaluar', requireRole('analista', 'admin', 'super_admin'), asyn
     const documento_id = req.params.id;
     const { estatus_nuevo, observaciones } = req.body; 
     
-    const { usuario_id } = await rastrearInfo(req);
+    const usuarioActivo = req.usuario || req.user || {};
+    let usuario_id = usuarioActivo.id || usuarioActivo.usuario_id || req.userId;
+
+    if (!usuario_id) {
+      const authHeader = req?.headers?.authorization;
+      const tokenCrudo = authHeader ? authHeader.split(' ')[1] : null;
+      const payload = tokenCrudo ? jwt.decode(tokenCrudo) : null;
+
+      usuario_id = payload?.id || payload?.usuario_id || payload?.id_usuario;
+    }
+
+    if (!usuario_id) {
+      return res.status(401).json({
+        success: false,
+        message: 'No se pudo identificar al analista'
+      });
+    }
 
     await pool.query('UPDATE documentos_municipio SET estatus = ? WHERE id = ?', [estatus_nuevo, documento_id]);
 
