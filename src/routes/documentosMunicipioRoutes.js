@@ -126,6 +126,7 @@ const obtenerRegionDelAnalista = async (req) => {
 // RUTAS PARA EL MUNICIPIO
 // ==========================================
 
+// 1. Cargar nuevo documento
 router.post('/cargar', requireRole('municipio', 'admin', 'super_admin'), upload.single('documento'), async (req, res) => {
   try {
     const { tipo_movimiento } = req.body;
@@ -149,6 +150,54 @@ router.post('/cargar', requireRole('municipio', 'admin', 'super_admin'), upload.
   } catch (error) {
     console.error("ERROR EN BD:", error);
     res.status(500).json({ success: false, message: 'Error al guardar en BD' });
+  }
+});
+
+// 2. ACTUALIZAR documento rechazado (NUEVO)
+router.put('/:id/actualizar', requireRole('municipio', 'admin', 'super_admin'), upload.single('documento'), async (req, res) => {
+  try {
+    const documento_id = req.params.id;
+    const archivo = req.file;
+
+    if (!archivo) return res.status(400).json({ success: false, message: 'Debe subir un archivo PDF corregido' });
+
+    const { usuario_id } = await rastrearInfo(req);
+
+    // Actualizamos el archivo y lo regresamos a "En revisión"
+    await pool.query(`
+      UPDATE documentos_municipio 
+      SET archivo_nombre = ?, archivo_url = ?, estatus = 'En revisión', fecha_carga = NOW()
+      WHERE id = ?
+    `, [archivo.originalname, archivo.path, documento_id]);
+
+    // Agregamos el movimiento a la bitácora para mantener la continuidad
+    await pool.query(`
+      INSERT INTO bitacora_documentos (documento_id, usuario_id, estatus_nuevo, observaciones)
+      VALUES (?, ?, 'En revisión', 'Documento corregido y reenviado a C5')
+    `, [documento_id, usuario_id]);
+
+    res.json({ success: true, message: 'Documento actualizado y enviado a revisión' });
+  } catch (error) {
+    console.error("ERROR AL ACTUALIZAR:", error);
+    res.status(500).json({ success: false, message: 'Error al actualizar documento' });
+  }
+});
+
+// 3. ELIMINAR documento (NUEVO)
+router.delete('/:id', requireRole('municipio', 'admin', 'super_admin'), async (req, res) => {
+  try {
+    const documento_id = req.params.id;
+    
+    // Primero borramos la bitácora asociada (para evitar errores de Foreign Key)
+    await pool.query('DELETE FROM bitacora_documentos WHERE documento_id = ?', [documento_id]);
+    
+    // Luego borramos el documento
+    await pool.query('DELETE FROM documentos_municipio WHERE id = ?', [documento_id]);
+
+    res.json({ success: true, message: 'Documento eliminado correctamente' });
+  } catch (error) {
+    console.error("ERROR AL ELIMINAR:", error);
+    res.status(500).json({ success: false, message: 'Error al eliminar el documento' });
   }
 });
 
