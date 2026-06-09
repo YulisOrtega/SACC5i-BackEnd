@@ -127,29 +127,44 @@ const obtenerRegionDelAnalista = async (req) => {
 // ==========================================
 
 // 1. Cargar nuevo documento
-router.post('/cargar', requireRole('municipio', 'admin', 'super_admin'), upload.single('documento'), async (req, res) => {
+router.post('/cargar', requireRole('municipio', 'admin', 'super_admin'), upload.array('documentos', 10), async (req, res) => {
   try {
     const { tipo_movimiento } = req.body;
-    const archivo = req.file;
+    const archivos = req.files || [];
 
-    if (!archivo) return res.status(400).json({ success: false, message: 'Debe subir un archivo PDF' });
+    if (archivos.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Debe subir al menos un archivo PDF'
+      });
+    }
 
     const { municipio_id, usuario_id } = await rastrearInfo(req);
 
-    const [result] = await pool.query(`
-      INSERT INTO documentos_municipio (municipio_id, tipo_movimiento, archivo_nombre, archivo_url, estatus)
-      VALUES (?, ?, ?, ?, 'En revisión')
-    `, [municipio_id, tipo_movimiento, archivo.originalname, archivo.path]);
+    for (const archivo of archivos) {
+      const [result] = await pool.query(`
+        INSERT INTO documentos_municipio 
+        (municipio_id, tipo_movimiento, archivo_nombre, archivo_url, estatus)
+        VALUES (?, ?, ?, ?, 'En revisión')
+      `, [municipio_id, tipo_movimiento, archivo.originalname, archivo.path]);
 
-    await pool.query(`
-      INSERT INTO bitacora_documentos (documento_id, usuario_id, estatus_nuevo, observaciones)
-      VALUES (?, ?, 'En revisión', 'Documento cargado y enviado a C5')
-    `, [result.insertId, usuario_id]);
+      await pool.query(`
+        INSERT INTO bitacora_documentos 
+        (documento_id, usuario_id, estatus_nuevo, observaciones)
+        VALUES (?, ?, 'En revisión', 'Documento cargado y enviado a C5')
+      `, [result.insertId, usuario_id]);
+    }
 
-    res.status(201).json({ success: true, message: 'Documento cargado y guardado en BD' });
+    res.status(201).json({
+      success: true,
+      message: `${archivos.length} documento(s) cargado(s) y enviado(s) a C5`
+    });
   } catch (error) {
     console.error("ERROR EN BD:", error);
-    res.status(500).json({ success: false, message: 'Error al guardar en BD' });
+    res.status(500).json({
+      success: false,
+      message: 'Error al guardar en BD'
+    });
   }
 });
 
