@@ -1521,18 +1521,21 @@ router.post('/finalizados/:id/acuse',
   subirAcuseFinalizado
 );
 
+// 🔥 ¡ESTA ERA LA RUTA QUE FALTABA PARA EL ACUSE DE LA PERSONA!
+router.post('/finalizados/:id/acuse-persona',
+  requireRole('analista', 'admin', 'super_admin'),
+  uploadAcuse.single('file'),
+  subirAcusePersonaFinalizado
+);
+
 router.get('/finalizados/:id/constancia/view',
   requireRole('analista', 'admin', 'super_admin', 'direccion', 'coordinador'),
   verConstanciaFinalizado
 );
 
-router.get('/finalizados/:id/acuse/view',
+// SE CORRIGIÓ LA RUTA 
+router.get('/finalizados/:id/acuse-persona/view',
   requireRole('analista', 'admin', 'super_admin', 'direccion', 'coordinador'),
-  verAcusePersonaFinalizado
-);
-
-router.get('/finalizados/:id/acuse/view',
-  requireRole('analista', 'admin', 'super_admin', 'direccion'),
   verAcusePersonaFinalizado
 );
 
