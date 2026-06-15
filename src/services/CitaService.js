@@ -1025,6 +1025,25 @@ class CitaService {
       const whereConditions = [];
       const whereParams = [];
 
+      const tablaTieneIsBaja = await this._tablaFinalizadosTieneColumna(
+        connection,
+        tablaFinalizados,
+        'is_baja'
+      );
+
+      if (tablaTieneIsBaja) {
+        whereConditions.push('IFNULL(f.is_baja, 0) = 0');
+      }
+
+      if (cleanSearch) {
+        whereConditions.push(`(
+          f.nombre_elemento LIKE ?
+          OR IFNULL(f.numero_oficio, '') LIKE ?
+          OR IFNULL(f.cuip, '') LIKE ?
+        )`);
+        whereParams.push(like, like, like);
+      }
+
       if (cleanSearch) {
         whereConditions.push(`(
           f.nombre_elemento LIKE ?
@@ -1041,6 +1060,9 @@ class CitaService {
       );
       const joinTramites = tablaTieneTramiteAltaId
         ? 'LEFT JOIN tramites_alta ta ON ta.id = f.tramite_alta_id'
+        : '';
+      const joinMunicipios = tablaTieneTramiteAltaId
+        ? 'LEFT JOIN municipios m ON m.id = ta.municipio_id'
         : '';
       const analistaSelect = tablaTieneTramiteAltaId
         ? 'ta.usuario_analista_c5_id AS analista_id'
@@ -1072,16 +1094,17 @@ class CitaService {
 
       const [rows] = await connection.query(
         `SELECT
-           f.id,
-           f.cita_id,
-           f.tramite_alta_id,
-           f.nombre_elemento,
-           f.puesto_elemento,
-           f.numero_oficio,
-           f.fecha_termino,
-           f.cuip,
-           f.fase1_estado,
-           CASE WHEN f.acuse_relative_path IS NULL THEN FALSE ELSE TRUE END AS constancia_subida,
+          f.id,
+          f.cita_id,
+          f.tramite_alta_id,
+          f.nombre_elemento,
+          f.puesto_elemento,
+          f.numero_oficio,
+          f.fecha_termino,
+          f.cuip,
+          f.fase1_estado,
+          m.nombre AS municipio_nombre,
+          CASE WHEN f.acuse_relative_path IS NULL THEN FALSE ELSE TRUE END AS constancia_subida,
            CASE WHEN f.acuse_relative_path IS NULL THEN FALSE ELSE TRUE END AS acuse_subido,
            f.acuse_original_name AS constancia_original_name,
            f.acuse_original_name,
@@ -1092,6 +1115,7 @@ class CitaService {
             ${analistaSelect}
         FROM ${tablaFinalizados} f
          ${joinTramites}
+         ${joinMunicipios}
          ${whereClause}
          ORDER BY f.created_at DESC
          LIMIT ? OFFSET ?`,
