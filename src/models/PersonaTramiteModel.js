@@ -22,6 +22,12 @@ class PersonaTramiteModel extends BaseModel {
       FROM personas_tramite_alta p
       LEFT JOIN puestos pu ON p.puesto_id = pu.id
       WHERE p.tramite_alta_id = ?
+      AND NOT EXISTS (
+        SELECT 1
+        FROM finalizados f
+        WHERE f.persona_tramite_id = p.id
+          AND IFNULL(f.is_baja, 0) = 1
+      )
     `;
     const params = [tramiteId];
 

@@ -53,7 +53,17 @@ class TramiteAltaModel extends BaseModel {
         tof.nombre as tipo_oficio_nombre,
         e.nombre as estatus_nombre,
         d.nombre as dependencia_nombre,
-        (SELECT COUNT(*) FROM personas_tramite_alta WHERE tramite_alta_id = t.id) as total_personas
+        (
+  SELECT COUNT(*)
+  FROM personas_tramite_alta p
+  WHERE p.tramite_alta_id = t.id
+    AND NOT EXISTS (
+      SELECT 1
+      FROM finalizados f
+      WHERE f.persona_tramite_id = p.id
+        AND IFNULL(f.is_baja, 0) = 1
+    )
+) as total_personas
       FROM tramites_alta t
       LEFT JOIN municipios m ON t.municipio_id = m.id
       LEFT JOIN tipos_oficio tof ON t.tipo_oficio_id = tof.id
