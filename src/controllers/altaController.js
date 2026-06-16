@@ -197,13 +197,18 @@ export const eliminarMunicipioDashboard = async (req, res) => {
 /**
  * Obtener todas las solicitudes de ALTA del analista
  */
+/**
+ * Obtener todas las solicitudes de ALTA del analista
+ */
 export const obtenerMisSolicitudes = async (req, res) => {
   try {
     const analistaId = req.userId;
+    // 🔥 CORRECCIÓN: Le pasamos el rol al filtro para que el modelo sepa si es Admin
     const filtros = {
       fase_actual: req.query.fase,
       municipio_id: req.query.municipio_id,
-      estatus_id: req.query.estatus_id
+      estatus_id: req.query.estatus_id,
+      usuario_rol: req.userRole 
     };
 
     const solicitudes = await TramiteAltaService.obtenerSolicitudesAnalista(analistaId, filtros);

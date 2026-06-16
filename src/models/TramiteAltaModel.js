@@ -44,7 +44,19 @@ class TramiteAltaModel extends BaseModel {
   /**
    * Obtener trámites del analista con información relacionada
    */
+  /**
+   * Obtener trámites del analista con información relacionada
+   */
   async findByAnalistaWithDetails(analistaId, filters = {}) {
+    const params = [];
+    let whereClause = 'WHERE 1=1'; // Por defecto (para admin/super_admin) trae todo
+
+    // 🔥 CORRECCIÓN: Si NO es administrador, le aplicamos el candado para que solo vea lo suyo
+    if (filters.usuario_rol !== 'admin' && filters.usuario_rol !== 'super_admin') {
+      whereClause = 'WHERE (t.usuario_analista_c5_id = ? OR t.es_tramite_dependencia = TRUE)';
+      params.push(analistaId);
+    }
+
     let query = `
       SELECT 
         t.*,
@@ -54,24 +66,23 @@ class TramiteAltaModel extends BaseModel {
         e.nombre as estatus_nombre,
         d.nombre as dependencia_nombre,
         (
-  SELECT COUNT(*)
-  FROM personas_tramite_alta p
-  WHERE p.tramite_alta_id = t.id
-    AND NOT EXISTS (
-      SELECT 1
-      FROM finalizados f
-      WHERE f.persona_tramite_id = p.id
-        AND IFNULL(f.is_baja, 0) = 1
-    )
-) as total_personas
+          SELECT COUNT(*)
+          FROM personas_tramite_alta p
+          WHERE p.tramite_alta_id = t.id
+            AND NOT EXISTS (
+              SELECT 1
+              FROM finalizados f
+              WHERE f.persona_tramite_id = p.id
+                AND IFNULL(f.is_baja, 0) = 1
+            )
+        ) as total_personas
       FROM tramites_alta t
       LEFT JOIN municipios m ON t.municipio_id = m.id
       LEFT JOIN tipos_oficio tof ON t.tipo_oficio_id = tof.id
       LEFT JOIN estatus_solicitudes e ON t.estatus_id = e.id
       LEFT JOIN dependencias d ON t.dependencia_id = d.id
-      WHERE (t.usuario_analista_c5_id = ? OR t.es_tramite_dependencia = TRUE)
+      ${whereClause}
     `;
-    const params = [analistaId];
 
     if (filters.fase_actual) {
       query += ' AND t.fase_actual = ?';
@@ -92,7 +103,6 @@ class TramiteAltaModel extends BaseModel {
 
     return await this.query(query, params);
   }
-
   /**
    * Obtener un trámite con toda su información relacionada
    */
