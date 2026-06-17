@@ -166,6 +166,7 @@ async listarPersonasFinalizadasPorMunicipio(
          IFNULL(pta.nombre, f.nombre_elemento) AS nombre,
          IFNULL(pta.apellido_paterno, '') AS apellido_paterno,
          IFNULL(pta.apellido_materno, '') AS apellido_materno,
+         f.numero_oficio, -- nueva columna para mostrar el número de oficio
          pta.fecha_nacimiento
        FROM ${tablaFinalizados} f
        LEFT JOIN personas_tramite_alta pta ON pta.id = f.persona_tramite_id
@@ -228,6 +229,7 @@ async listarPersonasFinalizadasPorMunicipio(
            IFNULL(pta.nombre, f.nombre_elemento) AS nombre,
            IFNULL(pta.apellido_paterno, '') AS apellido_paterno,
            IFNULL(pta.apellido_materno, '') AS apellido_materno,
+           f.numero_oficio, -- CORRECCIÓN AQUÍ TAMBIÉN
            pta.fecha_nacimiento
          FROM ${tablaFinalizados} f
          LEFT JOIN personas_tramite_alta pta ON pta.id = f.persona_tramite_id
@@ -250,6 +252,7 @@ async listarPersonasFinalizadasPorMunicipio(
         { header: 'Nombre', key: 'nombre', width: 28 },
         { header: 'Apellido Paterno', key: 'apellido_paterno', width: 24 },
         { header: 'Apellido Materno', key: 'apellido_materno', width: 24 },
+        { header: 'No. Oficio', key: 'numero_oficio', width: 25 }, // NUEVA COLUMNA EXCEL
         { header: 'Fecha de nacimiento', key: 'fecha_nacimiento', width: 20 }
       ];
 
@@ -263,6 +266,7 @@ async listarPersonasFinalizadasPorMunicipio(
           nombre: item.nombre || '',
           apellido_paterno: item.apellido_paterno || '',
           apellido_materno: item.apellido_materno || '',
+          numero_oficio: item.numero_oficio || '---', // 🔥 DATO EXTRAÍDO CORRECTAMENTE
           fecha_nacimiento: item.fecha_nacimiento
             ? new Date(item.fecha_nacimiento).toLocaleDateString('es-MX')
             : ''

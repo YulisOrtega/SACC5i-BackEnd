@@ -20,21 +20,33 @@ const PORT = process.env.PORT || 5000;
 app.disable('x-powered-by');
 app.set('trust proxy', 1);
 
-// Configuración de CORS
-const allowedOrigins = (process.env.FRONTEND_URLS || process.env.FRONTEND_URL || 'http://localhost:3000')
+// Configuración de CORS Corregida
+const envOrigins = (process.env.FRONTEND_URLS || process.env.FRONTEND_URL || '')
   .split(',')
   .map((item) => item.trim())
   .filter(Boolean);
 
-const isDevelopment = process.env.NODE_ENV !== 'production';
-const localhostRegex = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i;
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://localhost:5173',
+  'http://127.0.0.1:3000',
+  'http://127.0.0.1:5173',
+  ...envOrigins
+];
 
 const corsOptions = {
   origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin) || (isDevelopment && localhostRegex.test(origin))) {
+    // Expresión regular que permite localhost, 127.0.0.1 y cualquier IP de red local (192.168.x.x)
+    const isLocalDevelopment = /^https?:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+)(:\d+)?$/i.test(origin);
+
+    // Permitir peticiones sin origin (como Postman), orígenes explícitos en la lista o entornos de desarrollo locales
+    if (!origin || allowedOrigins.includes(origin) || isLocalDevelopment) {
       return callback(null, true);
     }
-    return callback(new Error('Origen no permitido por CORS'));
+    
+    console.warn(`⚠️ CORS bloqueó la petición desde el origen: ${origin}`);
+    // En lugar de lanzar un error fatal que tire el servidor, se deniega el acceso suavemente
+    return callback(null, false);
   },
   credentials: true,
   optionsSuccessStatus: 200
@@ -115,7 +127,6 @@ const startServer = async () => {
     const server = app.listen(PORT, () => {
       console.log('\n🚀 Servidor RPSP Backend iniciado');
       console.log(`📡 Puerto: ${PORT}`);
-
       console.log(`📚 Swagger: http://localhost:${PORT}/api-docs\n`);
     });
 
