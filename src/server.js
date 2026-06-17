@@ -36,16 +36,15 @@ const allowedOrigins = [
 
 const corsOptions = {
   origin: (origin, callback) => {
-    // Expresión regular que permite localhost, 127.0.0.1 y cualquier IP de red local (192.168.x.x)
-    const isLocalDevelopment = /^https?:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+)(:\d+)?$/i.test(origin);
+    // 🔥 ACTUALIZADO: Permite localhost y TODAS las redes privadas (192.168.x.x, 10.x.x.x, 172.x.x.x)
+    const isLocalDevelopment = /^https?:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.\d+\.\d+\.\d+)(:\d+)?$/i.test(origin);
 
-    // Permitir peticiones sin origin (como Postman), orígenes explícitos en la lista o entornos de desarrollo locales
+    // Permitir peticiones sin origin (como Postman), orígenes explícitos en la lista o redes locales
     if (!origin || allowedOrigins.includes(origin) || isLocalDevelopment) {
       return callback(null, true);
     }
     
     console.warn(`⚠️ CORS bloqueó la petición desde el origen: ${origin}`);
-    // En lugar de lanzar un error fatal que tire el servidor, se deniega el acceso suavemente
     return callback(null, false);
   },
   credentials: true,
