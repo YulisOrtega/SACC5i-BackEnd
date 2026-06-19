@@ -9,6 +9,7 @@ import routes from './routes/index.js';
 import { errorHandler, notFoundHandler } from './middlewares/errorMiddleware.js';
 import { apiRateLimiter } from './middlewares/rateLimitMiddleware.js';
 import { requestContextMiddleware } from './middlewares/requestContextMiddleware.js';
+import repositorioMunicipiosRoutes from "./routes/repositorioMunicipiosRoutes.js";
 
 // Cargar variables de entorno
 dotenv.config();
@@ -36,7 +37,7 @@ const allowedOrigins = [
 
 const corsOptions = {
   origin: (origin, callback) => {
-    // 🔥 ACTUALIZADO: Permite localhost y TODAS las redes privadas (192.168.x.x, 10.x.x.x, 172.x.x.x)
+    //  ACTUALIZADO: Permite localhost y TODAS las redes privadas (192.168.x.x, 10.x.x.x, 172.x.x.x)
     const isLocalDevelopment = /^https?:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.\d+\.\d+\.\d+)(:\d+)?$/i.test(origin);
 
     // Permitir peticiones sin origin (como Postman), orígenes explícitos en la lista o redes locales
@@ -58,6 +59,9 @@ app.use(cors(corsOptions));
 app.use(apiRateLimiter);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Rutas del repositorio de municipios
+app.use("/api/repositorio-municipios", repositorioMunicipiosRoutes);
 
 // Swagger UI - Documentación interactiva
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
