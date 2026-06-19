@@ -10,6 +10,7 @@ import oficiosRespuestaRoutes from './oficiosRespuestaRoutes.js';
 import direccionRoutes from './direccionRoutes.js';
 import { authMiddleware } from '../middlewares/authMiddleware.js';
 import documentosMunicipioRoutes from './documentosMunicipioRoutes.js';
+import listadoNominalRoutes from './listadoNominalRoutes.js';
 
 const router = express.Router();
 
@@ -42,6 +43,9 @@ router.use('/catalogos', catalogosRoutes);
 
 // MÓDULO: Documentos de Municipios
 router.use('/documentos-municipio', documentosMunicipioRoutes);
+
+// listado
+router.use('/listados-nominales', listadoNominalRoutes);
 
 /**
  * @swagger

@@ -377,6 +377,27 @@ const initDatabase = async () => {
     `);
     console.log('✅ Tabla oficios_respuesta_files creada');
 
+    // ============================================
+    // TABLA: Listados Nominales (Respaldo PDFs)
+    // ============================================
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS listados_nominales (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        municipio_id INT NOT NULL,
+        usuario_id INT NOT NULL COMMENT 'Analista o Admin que lo subio',
+        archivo_nombre VARCHAR(255) NOT NULL,
+        archivo_ruta VARCHAR(500) NOT NULL,
+        estado VARCHAR(20) DEFAULT 'VIGENTE' COMMENT 'VIGENTE o ANTERIOR',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY (municipio_id) REFERENCES municipios(id) ON DELETE CASCADE,
+        FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE RESTRICT,
+        INDEX idx_ln_municipio (municipio_id),
+        INDEX idx_ln_estado (estado)
+      )
+    `);
+    console.log('✅ Tabla listados_nominales creada');
+
     console.log('\n🎉 Estructura de base de datos creada correctamente');
     console.log('📊 Ejecuta el seeder para cargar los datos: npm run seed\n');
 
