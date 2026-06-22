@@ -6,9 +6,10 @@ export const obtenerListados = async (req, res) => {
   try {
     const { busqueda = '' } = req.query;
     const cleanSearch = `%${busqueda.trim()}%`;
-    const userRole = req.userRole; // Extraído de tu token
+    const userRole = req.userRole; 
     const regionId = req.regionId;
 
+    // 🔥 AHORA BUSCA EN MUNICIPIO O EN NOMBRE DE ARCHIVO
     let query = `
       SELECT 
         ln.id, 
@@ -20,11 +21,12 @@ export const obtenerListados = async (req, res) => {
       FROM listados_nominales ln
       INNER JOIN municipios m ON ln.municipio_id = m.id
       INNER JOIN usuarios u ON ln.usuario_id = u.id
-      WHERE (? = '%%' OR m.nombre LIKE ?)
+      WHERE (m.nombre LIKE ? OR ln.archivo_nombre LIKE ?)
     `;
+    // Pasamos el parámetro dos veces: uno para municipio y otro para el archivo
     const params = [cleanSearch, cleanSearch];
 
-    // 🔥 FILTRO CLAVE: Si no es admin, solo ve los de su región
+    // Filtro por región para analistas
     if (userRole !== 'admin' && userRole !== 'super_admin' && regionId) {
       query += ` AND m.region_id = ?`;
       params.push(regionId);
