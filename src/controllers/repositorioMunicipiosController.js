@@ -2,10 +2,17 @@ import RepositorioMunicipiosService from "../services/RepositorioMunicipiosServi
 
 export const listarMunicipiosRepositorio = async (req, res) => {
   try {
+    console.log("ROL:", req.userRole);
+    console.log("USER ID:", req.userId);
+    console.log("BODY USER:", {
+      userId: req.userId,
+      userRole: req.userRole,
+      regionId: req.userRegionId
+    });
+
     const data = await RepositorioMunicipiosService.listarMunicipios({
       usuarioId: req.userId,
       rol: req.userRole,
-      regionId: req.userRegionId,
       busqueda: req.query.busqueda || ""
     });
 

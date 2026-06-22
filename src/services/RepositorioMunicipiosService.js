@@ -1,16 +1,26 @@
 import pool from "../config/database.js";
 
-class RepositorioMunicipiosService {
-  async listarMunicipios({ rol, regionId, busqueda = "" }) {
+  class RepositorioMunicipiosService {
+  async listarMunicipios({ rol, usuarioId, busqueda = "" }) {
     const cleanSearch = String(busqueda || "").trim();
     const like = `%${cleanSearch}%`;
 
-    const params = [];
+    const rolNormalizado = String(rol || "").toLowerCase();
+
+    const params = [cleanSearch, like];
+
     let filtroRegion = "";
 
-    if (rol === "analista" && regionId) {
-      filtroRegion = "AND m.region_id = ?";
-      params.push(regionId);
+    if (rolNormalizado.includes("analista")) {
+      filtroRegion = `
+        AND m.region_id = (
+          SELECT region_id
+          FROM usuarios
+          WHERE id = ?
+          LIMIT 1
+        )
+      `;
+      params.push(usuarioId);
     }
 
     const [rows] = await pool.query(
@@ -18,13 +28,10 @@ class RepositorioMunicipiosService {
       SELECT
         m.id AS municipio_id,
         m.nombre AS municipio_nombre,
-
         COUNT(d.id) AS total_documentos,
-
         SUM(CASE WHEN d.tipo_archivo = 'pdf' THEN 1 ELSE 0 END) AS total_pdf,
         SUM(CASE WHEN d.tipo_archivo = 'excel' THEN 1 ELSE 0 END) AS total_excel,
         SUM(CASE WHEN d.tipo_archivo = 'imagen' THEN 1 ELSE 0 END) AS total_imagen,
-
         MAX(d.created_at) AS ultima_carga
       FROM municipios m
       LEFT JOIN repositorio_municipios_documentos d
@@ -34,7 +41,7 @@ class RepositorioMunicipiosService {
       GROUP BY m.id, m.nombre
       ORDER BY m.nombre ASC
       `,
-      [cleanSearch, like, ...params]
+      params
     );
 
     return rows;
