@@ -1,9 +1,13 @@
 import { Router } from 'express';
 import multer from 'multer';
 import fs from 'fs';
-import { obtenerListados, subirListado, descargarListado } from '../controllers/listadoNominalController.js';
+import { obtenerListados, subirListado, descargarListado,eliminarListado } from '../controllers/listadoNominalController.js';
 // Importa tu middleware de autenticación (ajusta la ruta o nombre si es distinto)
 import { authMiddleware } from '../middlewares/authMiddleware.js'; 
+
+
+
+
 
 // Aseguramos que la carpeta de respaldos exista
 const uploadDir = 'uploads/listados';
@@ -28,5 +32,6 @@ const router = Router();
 router.get('/', authMiddleware, obtenerListados);
 router.post('/subir', authMiddleware, upload.single('documento'), subirListado);
 router.get('/:id/descargar', authMiddleware, descargarListado);
+router.delete('/:id', authMiddleware, eliminarListado);
 
 export default router;

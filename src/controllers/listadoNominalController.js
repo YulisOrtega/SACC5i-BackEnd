@@ -100,3 +100,53 @@ export const descargarListado = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+
+
+
+export const eliminarListado = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const [[listado]] = await pool.query(
+      'SELECT archivo_ruta FROM listados_nominales WHERE id = ?',
+      [id]
+    );
+
+    if (!listado) {
+      return res.status(404).json({
+        success: false,
+        message: 'Archivo no encontrado'
+      });
+    }
+
+    const filePath = path.join(
+      process.cwd(),
+      listado.archivo_ruta
+    );
+
+    // Eliminar archivo físico
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
+
+    // Eliminar registro de BD
+    await pool.query(
+      'DELETE FROM listados_nominales WHERE id = ?',
+      [id]
+    );
+
+    res.json({
+      success: true,
+      message: 'Archivo eliminado correctamente'
+    });
+
+  } catch (error) {
+    console.error('Error al eliminar listado:', error);
+
+    res.status(500).json({
+      success: false,
+      message: 'Error al eliminar archivo'
+    });
+  }
+};
