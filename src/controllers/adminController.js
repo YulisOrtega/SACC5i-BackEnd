@@ -749,38 +749,39 @@ export const purgeUsuarioRegistros = async (req, res) => {
         `, [targetId]);
       }
     } 
+    
     // ==========================================
     // LÓGICA DE BORRADO PARA MUNICIPIOS
     // ==========================================
     else if (targetUser.rol === 'municipio') {
       if (!targetUser.municipio_id) {
         await connection.rollback();
-        return res.status(400).json({
-          success: false,
-          message: 'Este usuario no tiene un municipio enlazado para borrar sus documentos.'
-        });
+        return res.status(400).json({ success: false, message: 'Usuario sin municipio enlazado.' });
       }
 
-      // Contar documentos a borrar
-      const [countDocs] = await connection.query(
-        'SELECT COUNT(*) as total FROM documentos_municipio WHERE municipio_id = ?', 
-        [targetUser.municipio_id]
-      );
-      totalEliminados = countDocs[0].total;
-      resumenAntes = { documentos_municipio: totalEliminados };
+      // 1. Contamos lo que hay en las tres tablas afectadas
+      const [countDocs] = await connection.query('SELECT COUNT(*) as total FROM documentos_municipio WHERE municipio_id = ?', [targetUser.municipio_id]);
+      const [countNominal] = await connection.query('SELECT COUNT(*) as total FROM listados_nominales WHERE usuario_id = ?', [targetId]);
+      const [countPersonalActivo] = await connection.query('SELECT COUNT(*) as total FROM repositorio_municipios_documentos WHERE usuario_id = ?', [targetId]);
+
+      totalEliminados = countDocs[0].total + countNominal[0].total + countPersonalActivo[0].total;
 
       if (totalEliminados > 0) {
-        // 1. Borrar bitácora asociada a los documentos de este municipio
+        // A. Borrar bitácora de documentos_municipio
         await safeDeleteQuery(connection, `
           DELETE b FROM bitacora_documentos b
           INNER JOIN documentos_municipio d ON b.documento_id = d.id
           WHERE d.municipio_id = ?
         `, [targetUser.municipio_id]);
 
-        // 2. Borrar los documentos
-        await safeDeleteQuery(connection, `
-          DELETE FROM documentos_municipio WHERE municipio_id = ?
-        `, [targetUser.municipio_id]);
+        // B. Borrar documentos_municipio
+        await safeDeleteQuery(connection, `DELETE FROM documentos_municipio WHERE municipio_id = ?`, [targetUser.municipio_id]);
+
+        // C. Borrar Listado Nominal (usando usuario_id)
+        await safeDeleteQuery(connection, `DELETE FROM listados_nominales WHERE usuario_id = ?`, [targetId]);
+
+        // D. Borrar Personal Activo / Repositorio (usando usuario_id)
+        await safeDeleteQuery(connection, `DELETE FROM repositorio_municipios_documentos WHERE usuario_id = ?`, [targetId]);
       }
     }
 

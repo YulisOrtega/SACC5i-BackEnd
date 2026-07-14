@@ -127,9 +127,11 @@ const startServer = async () => {
     }
 
     // Iniciar servidor
-    const server = app.listen(PORT, () => {
+   // Iniciar servidor permitiendo conexiones de red externa (0.0.0.0)
+    const server = app.listen(PORT, '0.0.0.0', () => {
       console.log('\n🚀 Servidor RPSP Backend iniciado');
       console.log(`📡 Puerto: ${PORT}`);
+      console.log(`🌐 Acceso en Red: http://10.26.218.76:${PORT}/api`);
       console.log(`📚 Swagger: http://localhost:${PORT}/api-docs\n`);
     });
 
