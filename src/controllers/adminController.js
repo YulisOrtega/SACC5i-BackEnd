@@ -42,38 +42,95 @@ const SESSION_IDLE_TIMEOUT_MINUTES = Math.max(
   30,
   Number(process.env.SESSION_IDLE_TIMEOUT_MINUTES) || 30
 );
-
 const obtenerResumenRegistrosAnalista = async (connection, usuarioId) => {
-  const [tramites, personas, historial, citas, finalizados, dashboard] = await Promise.all([
-    safeCountQuery(connection, `SELECT COUNT(*) AS total FROM tramites_alta WHERE usuario_analista_c5_id = ?`, [usuarioId]),
+  const [
+    tramites,
+    personas,
+    historial,
+    citas,
+    finalizados,
+    dashboard,
+    personasRevisadas,
+    historialUsuario,
+    citasBitacora,
+    bitacoraDocumentos,
+    listadosNominales,
+    repositorioMunicipios
+  ] = await Promise.all([
+    safeCountQuery(connection, `
+      SELECT COUNT(*) AS total
+      FROM tramites_alta
+      WHERE usuario_analista_c5_id = ?
+    `, [usuarioId]),
+
     safeCountQuery(connection, `
       SELECT COUNT(*) AS total
       FROM personas_tramite_alta p
       INNER JOIN tramites_alta t ON t.id = p.tramite_alta_id
       WHERE t.usuario_analista_c5_id = ?
     `, [usuarioId]),
+
     safeCountQuery(connection, `
       SELECT COUNT(*) AS total
       FROM historial_tramites_alta h
       INNER JOIN tramites_alta t ON t.id = h.tramite_alta_id
       WHERE t.usuario_analista_c5_id = ?
     `, [usuarioId]),
+
     safeCountQuery(connection, `
       SELECT COUNT(*) AS total
       FROM citas_biometricas c
       INNER JOIN tramites_alta t ON t.id = c.tramite_alta_id
       WHERE t.usuario_analista_c5_id = ?
     `, [usuarioId]),
+
     safeCountQuery(connection, `
       SELECT COUNT(*) AS total
       FROM finalizados f
       INNER JOIN tramites_alta t ON t.id = f.tramite_alta_id
       WHERE t.usuario_analista_c5_id = ?
     `, [usuarioId]),
+
     safeCountQuery(connection, `
       SELECT COUNT(*) AS total
       FROM analista_municipios_dashboard
       WHERE usuario_analista_id = ?
+    `, [usuarioId]),
+
+    safeCountQuery(connection, `
+      SELECT COUNT(*) AS total
+      FROM personas_tramite_alta
+      WHERE revisado_por_usuario_id = ?
+    `, [usuarioId]),
+
+    safeCountQuery(connection, `
+      SELECT COUNT(*) AS total
+      FROM historial_tramites_alta
+      WHERE usuario_id = ?
+    `, [usuarioId]),
+
+    safeCountQuery(connection, `
+      SELECT COUNT(*) AS total
+      FROM citas_bitacora
+      WHERE usuario_id = ?
+    `, [usuarioId]),
+
+    safeCountQuery(connection, `
+      SELECT COUNT(*) AS total
+      FROM bitacora_documentos
+      WHERE usuario_id = ?
+    `, [usuarioId]),
+
+    safeCountQuery(connection, `
+      SELECT COUNT(*) AS total
+      FROM listados_nominales
+      WHERE usuario_id = ?
+    `, [usuarioId]),
+
+    safeCountQuery(connection, `
+      SELECT COUNT(*) AS total
+      FROM repositorio_municipios_documentos
+      WHERE usuario_id = ?
     `, [usuarioId])
   ]);
 
@@ -83,7 +140,13 @@ const obtenerResumenRegistrosAnalista = async (connection, usuarioId) => {
     historial_tramites_alta: historial,
     citas_biometricas: citas,
     finalizados,
-    analista_municipios_dashboard: dashboard
+    analista_municipios_dashboard: dashboard,
+    personas_revisadas: personasRevisadas,
+    historial_usuario: historialUsuario,
+    citas_bitacora: citasBitacora,
+    bitacora_documentos: bitacoraDocumentos,
+    listados_nominales: listadosNominales,
+    repositorio_municipios_documentos: repositorioMunicipios
   };
 };
 
@@ -713,43 +776,155 @@ export const purgeUsuarioRegistros = async (req, res) => {
     // ==========================================
     // LÓGICA DE BORRADO PARA ANALISTAS
     // ==========================================
-    if (targetUser.rol === 'analista') {
-      resumenAntes = await obtenerResumenRegistrosAnalista(connection, targetId);
-      totalEliminados = Object.values(resumenAntes)
-        .reduce((acc, value) => acc + Number(value || 0), 0);
+if (targetUser.rol === 'analista') {
+  resumenAntes = await obtenerResumenRegistrosAnalista(connection, targetId);
+  totalEliminados = Object.values(resumenAntes)
+    .reduce((acc, value) => acc + Number(value || 0), 0);
 
-      if (totalEliminados > 0) {
-        await safeDeleteQuery(connection, `
-          DELETE f FROM finalizados f
-          INNER JOIN tramites_alta t ON t.id = f.tramite_alta_id
-          WHERE t.usuario_analista_c5_id = ?
-        `, [targetId]);
-        await safeDeleteQuery(connection, `
-          DELETE c FROM citas_biometricas c
-          INNER JOIN tramites_alta t ON t.id = c.tramite_alta_id
-          WHERE t.usuario_analista_c5_id = ?
-        `, [targetId]);
-        await safeDeleteQuery(connection, `
-          DELETE h FROM historial_tramites_alta h
-          INNER JOIN tramites_alta t ON t.id = h.tramite_alta_id
-          WHERE t.usuario_analista_c5_id = ?
-        `, [targetId]);
-        await safeDeleteQuery(connection, `
-          DELETE p FROM personas_tramite_alta p
-          INNER JOIN tramites_alta t ON t.id = p.tramite_alta_id
-          WHERE t.usuario_analista_c5_id = ?
-        `, [targetId]);
-        await safeDeleteQuery(connection, `
-          DELETE FROM tramites_alta
-          WHERE usuario_analista_c5_id = ?
-        `, [targetId]);
-        await safeDeleteQuery(connection, `
-          DELETE FROM analista_municipios_dashboard
-          WHERE usuario_analista_id = ?
-        `, [targetId]);
-      }
-    } 
-    
+  // ==========================================
+  // Obtener documentos de Revisión Municipios
+  // tocados por el analista ANTES de borrar bitácoras
+  // ==========================================
+  const [documentosRevision] = await connection.query(`
+    SELECT DISTINCT d.id
+    FROM documentos_municipio d
+    INNER JOIN bitacora_documentos b ON b.documento_id = d.id
+    WHERE b.usuario_id = ?
+  `, [targetId]);
+
+  const documentosRevisionIds = documentosRevision.map(doc => doc.id);
+  totalEliminados += documentosRevisionIds.length;
+
+  if (totalEliminados > 0) {
+    // ==========================================
+    // 1. Finalizados asociados al analista
+    // ==========================================
+    await safeDeleteQuery(connection, `
+      DELETE f
+      FROM finalizados f
+      LEFT JOIN tramites_alta t ON t.id = f.tramite_alta_id
+      LEFT JOIN personas_tramite_alta p ON p.id = f.persona_tramite_id
+      WHERE t.usuario_analista_c5_id = ?
+         OR p.revisado_por_usuario_id = ?
+         OR f.baja_usuario_id = ?
+         OR f.acuse_persona_uploaded_by_id = ?
+    `, [targetId, targetId, targetId, targetId]);
+
+    // ==========================================
+    // 2. Citas asociadas a trámites del analista
+    // ==========================================
+    await safeDeleteQuery(connection, `
+      DELETE c
+      FROM citas_biometricas c
+      INNER JOIN tramites_alta t ON t.id = c.tramite_alta_id
+      WHERE t.usuario_analista_c5_id = ?
+    `, [targetId]);
+
+    // ==========================================
+    // 3. Citas asociadas a personas revisadas
+    // ==========================================
+    await safeDeleteQuery(connection, `
+      DELETE c
+      FROM citas_biometricas c
+      INNER JOIN personas_tramite_alta p ON p.id = c.persona_tramite_id
+      WHERE p.revisado_por_usuario_id = ?
+    `, [targetId]);
+
+    // ==========================================
+    // 4. Bitácora de citas hecha por el analista
+    // ==========================================
+    await safeDeleteQuery(connection, `
+      DELETE FROM citas_bitacora
+      WHERE usuario_id = ?
+    `, [targetId]);
+
+    // ==========================================
+    // 5. Historial ligado a trámites del analista
+    // ==========================================
+    await safeDeleteQuery(connection, `
+      DELETE h
+      FROM historial_tramites_alta h
+      INNER JOIN tramites_alta t ON t.id = h.tramite_alta_id
+      WHERE t.usuario_analista_c5_id = ?
+    `, [targetId]);
+
+    // ==========================================
+    // 6. Historial registrado directamente por el analista
+    // ==========================================
+    await safeDeleteQuery(connection, `
+      DELETE FROM historial_tramites_alta
+      WHERE usuario_id = ?
+    `, [targetId]);
+
+    // ==========================================
+    // 7. Revisión Municipios
+    // Primero borrar bitácoras, luego documentos
+    // ==========================================
+    if (documentosRevisionIds.length > 0) {
+      const placeholders = documentosRevisionIds.map(() => '?').join(',');
+
+      await safeDeleteQuery(connection, `
+        DELETE FROM bitacora_documentos
+        WHERE documento_id IN (${placeholders})
+      `, documentosRevisionIds);
+
+      await safeDeleteQuery(connection, `
+        DELETE FROM documentos_municipio
+        WHERE id IN (${placeholders})
+      `, documentosRevisionIds);
+    }
+
+    // ==========================================
+    // 8. Personas pertenecientes a trámites del analista
+    // ==========================================
+    await safeDeleteQuery(connection, `
+      DELETE p
+      FROM personas_tramite_alta p
+      INNER JOIN tramites_alta t ON t.id = p.tramite_alta_id
+      WHERE t.usuario_analista_c5_id = ?
+    `, [targetId]);
+
+    // ==========================================
+    // 9. Personas revisadas directamente por el analista
+    // ==========================================
+    await safeDeleteQuery(connection, `
+      DELETE FROM personas_tramite_alta
+      WHERE revisado_por_usuario_id = ?
+    `, [targetId]);
+
+    // ==========================================
+    // 10. Trámites asignados al analista
+    // ==========================================
+    await safeDeleteQuery(connection, `
+      DELETE FROM tramites_alta
+      WHERE usuario_analista_c5_id = ?
+    `, [targetId]);
+
+    // ==========================================
+    // 11. Dashboard del analista
+    // ==========================================
+    await safeDeleteQuery(connection, `
+      DELETE FROM analista_municipios_dashboard
+      WHERE usuario_analista_id = ?
+    `, [targetId]);
+
+    // ==========================================
+    // 12. Listado Nominal
+    // ==========================================
+    await safeDeleteQuery(connection, `
+      DELETE FROM listados_nominales
+      WHERE usuario_id = ?
+    `, [targetId]);
+
+    // ==========================================
+    // 13. Personal Activo
+    // ==========================================
+    await safeDeleteQuery(connection, `
+      DELETE FROM repositorio_municipios_documentos
+      WHERE usuario_id = ?
+    `, [targetId]);
+  }
+}
     // ==========================================
     // LÓGICA DE BORRADO PARA MUNICIPIOS
     // ==========================================
