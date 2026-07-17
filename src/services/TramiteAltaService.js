@@ -11,13 +11,21 @@ const normalizarNumeroOficio = (value) => {
   return String(value).trim().toUpperCase();
 };
 
+const normalizarNumeroOficioOpcional = (value) => {
+  if (value === undefined) return undefined;
+
+  const normalizedValue = String(value ?? '').trim().toUpperCase();
+
+  return normalizedValue || null;
+};
+
 const normalizarNombrePersona = (value) => {
   if (value === undefined) return undefined;
   if (value === null) return '';
   return String(value).trim().toUpperCase();
 };
 
-const normalizarNumeroOficioC3 = normalizarNumeroOficio;
+const normalizarNumeroOficioC3 = normalizarNumeroOficioOpcional;
 const normalizarNumeroOficioC5 = normalizarNumeroOficio;
 
 class TramiteAltaService {
