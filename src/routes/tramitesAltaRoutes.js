@@ -1027,7 +1027,7 @@ router.delete('/:tramite_id(\\d+)/borrador',
  *         application/json:
  *           schema:
  *             type: object
- *             required: [nombre, apellido_paterno, fecha_nacimiento, numero_oficio_c3, puesto_id]
+ *             required: [nombre, apellido_paterno, fecha_nacimiento, puesto_id]
  *             properties:
  *               nombre:
  *                 type: string
@@ -1065,7 +1065,13 @@ router.post('/:tramite_id/personas',
     body('nombre').notEmpty().withMessage('El nombre es requerido'),
     body('apellido_paterno').notEmpty().withMessage('El apellido paterno es requerido'),
     body('fecha_nacimiento').notEmpty().isDate().withMessage('Fecha de nacimiento inválida'),
-    body('numero_oficio_c3').notEmpty().withMessage('El número de oficio C3 es requerido'),
+
+    body('numero_oficio_c3')
+      .optional({ nullable: true, checkFalsy: true })
+      .trim()
+      .isLength({ max: 100 })
+      .withMessage('El número de oficio C3 no puede exceder 100 caracteres'),
+
     body('puesto_id').notEmpty().isInt().withMessage('El puesto es requerido')
   ],
   validate,
@@ -1110,9 +1116,13 @@ router.put('/persona/:persona_id',
     body('nombre').optional().notEmpty().withMessage('El nombre no puede estar vacío'),
     body('apellido_paterno').optional().notEmpty().withMessage('El apellido paterno no puede estar vacío'),
     body('fecha_nacimiento').optional().isDate().withMessage('Fecha de nacimiento inválida'),
-    body('numero_oficio_c3').optional().notEmpty().withMessage('El número de oficio C3 no puede estar vacío'),
-    body('puesto_id').optional().isInt().withMessage('El puesto debe ser un número')
-  ],
+    body('numero_oficio_c3')
+    .optional({ nullable: true, checkFalsy: true })
+    .trim()
+    .isLength({ max: 100 })
+    .withMessage('El número de oficio C3 no puede exceder 100 caracteres'),
+      body('puesto_id').optional().isInt().withMessage('El puesto debe ser un número')
+    ],
   validate,
   editarPersona
 );
