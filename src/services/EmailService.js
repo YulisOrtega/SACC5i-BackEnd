@@ -51,6 +51,7 @@ class EmailService {
    * Enviar notificación de cita biométrica con PDF adjunto
    * @returns {Promise<boolean>} true si se envió correctamente
    */
+  
   async enviarNotificacionCita(cita, persona, destinatario, pdfBuffer) {
     if (!this.transporter) {
       console.warn('EmailService no configurado — correo omitido');
@@ -62,7 +63,8 @@ class EmailService {
     const fromUser = process.env.MAIL_USER;
 
     try {
-      await this.transporter.sendMail({
+      // Guardamos la respuesta del servidor SMTP en la variable 'info'
+      const info = await this.transporter.sendMail({
         from: `"${fromName}" <${fromUser}>`,
         to: emailDestino,
         subject: `Cita Biométrica Programada — ${cita.folio_cita}`,
@@ -75,10 +77,18 @@ class EmailService {
           }
         ]
       });
-      console.log(`✅ Correo enviado a: ${emailDestino} (folio: ${cita.folio_cita})`);
+      
+      // Imprimimos el destino real y el ID de mensaje que asignó Microsoft
+      console.log(`✅ Correo aceptado por el servidor SMTP:`);
+      console.log(`   -> Destino real: ${emailDestino}`);
+      console.log(`   -> Message ID: ${info.messageId}`);
+      console.log(`   -> Respuesta SMTP: ${info.response}`);
+      
       return true;
     } catch (err) {
-      console.error(`❌ Error al enviar correo [${cita.folio_cita}]:`, err.message);
+      console.error(`❌ Error al enviar correo [${cita.folio_cita}]:`, err);
+      // Opcional: Lanza el error si quieres que el frontend sepa exactamente qué falló
+      // throw new Error(`Fallo SMTP: ${err.message}`);
       return false;
     }
   }

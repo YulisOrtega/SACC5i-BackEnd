@@ -1,5 +1,6 @@
 import CitaService from '../services/CitaService.js';
 
+
 /**
  * Listar citas con filtros y paginación
  * GET /api/tramites/alta/citas
@@ -29,6 +30,24 @@ export const listarCitas = async (req, res) => {
   } catch (err) {
     console.error('Error en listarCitas:', err);
     res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+//reagendar cita
+export const reenviarNotificacionCita = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { nuevo_correo } = req.body;
+    const data = await CitaService.reenviarNotificacionCita(Number(id), req.userId, { nuevo_correo });
+    
+    const msg = data.correoEnviado 
+      ? 'Correo actualizado y notificación enviada con éxito'
+      : 'Correo actualizado, pero el servidor de correo tardó en responder o falló el envío';
+      
+    res.json({ success: true, message: msg, data });
+  } catch (err) {
+    const code = err.message.includes('válido') ? 400 : 500;
+    res.status(code).json({ success: false, message: err.message });
   }
 };
 
@@ -79,14 +98,18 @@ export const obtenerBitacoraCita = async (req, res) => {
 export const reprogramarCita = async (req, res) => {
   try {
     const { id } = req.params;
-    const { fecha_cita, justificacion, lugar, notas } = req.body;
+    // AGREGAMOS 'nuevo_correo' a la desestructuración del req.body:
+    const { fecha_cita, justificacion, lugar, notas, nuevo_correo } = req.body; 
+    
     const data = await CitaService.reprogramarCita(Number(id), req.userId, {
       fecha_cita,
       justificacion,
       lugar,
-      notas
+      notas,
+      nuevo_correo
     });
-    res.json({ success: true, message: 'Cita reprogramada correctamente', data });
+    
+    res.json({ success: true, message: 'Cita reprogramada y acuse enviado correctamente', data });
   } catch (err) {
     const code = err.message.includes('obligatoria') || err.message.includes('justificación') ? 400 : 500;
     res.status(code).json({ success: false, message: err.message });

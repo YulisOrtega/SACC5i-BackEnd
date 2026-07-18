@@ -69,7 +69,8 @@ import {
   eliminarAcuseFinalizado,
   eliminarAcusePersonaFinalizado,
   verConstanciaFinalizado,
-  verAcusePersonaFinalizado
+  verAcusePersonaFinalizado,
+  reenviarNotificacionCita
 } from '../controllers/citasController.js';
 import {
   obtenerCatalogoBajas,
@@ -1442,6 +1443,20 @@ router.post('/cuip/:persona_id/aprobar-cita',
 // ============================================
 // HISTORIAL DE CITAS
 // ============================================
+
+// Reenviar notificación de cita
+router.patch('/citas/:id/reenviar-notificacion',
+  requireRole('analista', 'admin', 'super_admin'),
+  [
+    body('nuevo_correo')
+      .trim()
+      .notEmpty().withMessage('El nuevo correo electrónico es requerido')
+      .isEmail().withMessage('Debe proporcionar un correo electrónico válido')
+      .normalizeEmail()
+  ],
+  validate,
+  reenviarNotificacionCita
+);
 
 // Estadísticas de citas (debe ir antes de /citas para no conflictar)
 router.get('/citas/stats',

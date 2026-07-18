@@ -923,7 +923,9 @@ class CitaService {
     }
   }
 
-  async reprogramarCita(citaId, usuarioId, { fecha_cita, justificacion, lugar, notas }) {
+  //reprogramar cita
+  //reprogramar cita
+  async reprogramarCita(citaId, usuarioId, { fecha_cita, justificacion, lugar, notas, nuevo_correo }) {
     const connection = await pool.getConnection();
     try {
       const cita = await this._obtenerCitaConContexto(connection, citaId);
@@ -933,17 +935,26 @@ class CitaService {
         throw new Error('La justificación debe tener al menos 10 caracteres');
       }
 
+      // 1. Si enviaron un nuevo correo, lo usamos; si no, mantenemos el que ya tenía la cita
+      const correoDestino = (nuevo_correo && nuevo_correo.includes('@')) 
+        ? nuevo_correo.trim() 
+        : cita.correo_destinatario;
+
+      // 2. CORREGIDO: Se quitó el correoDestino repetido en el array de parámetros
       await connection.query(
         `UPDATE citas_biometricas
          SET fecha_cita = ?,
              estado = 'programada',
              lugar = COALESCE(?, lugar),
              notas = COALESCE(?, notas),
+             correo_destinatario = ?,
+             notificacion_enviada = FALSE,
              updated_at = NOW()
          WHERE id = ?`,
-        [fecha_cita, lugar || null, notas || null, citaId]
+        [fecha_cita, lugar || null, notas || null, correoDestino, citaId]
       );
 
+      // 3. Registramos en bitácora
       await this._registrarBitacora(
         connection,
         citaId,
@@ -954,12 +965,124 @@ class CitaService {
         {
           fecha_anterior: cita.fecha_cita,
           fecha_nueva: fecha_cita,
-          lugar_nuevo: lugar || cita.lugar
+          lugar_nuevo: lugar || cita.lugar,
+          correo_notificado: correoDestino
         }
       );
 
+      // 4. Generamos el PDF y enviamos el correo (SIN silenciar errores)
       const citaActualizada = await this.obtenerCitaPorId(citaId);
-      return { cita: citaActualizada };
+      const personaActualizada = await PersonaTramiteModel.findForCuip(cita.persona_id);
+
+      let pdfBuffer;
+      try {
+        pdfBuffer = await this._generarAcusePDF(citaActualizada, personaActualizada);
+      } catch (pdfErr) {
+        console.error('❌ Error al generar PDF en reprogramación:', pdfErr);
+        throw new Error(`Fallo al generar el acuse PDF: ${pdfErr.message}`);
+      }
+
+      let correoEnviado = false;
+      if (pdfBuffer && correoDestino) {
+        try {
+          correoEnviado = await EmailService.enviarNotificacionCita(
+            citaActualizada,
+            personaActualizada,
+            correoDestino,
+            pdfBuffer
+          );
+
+          if (!correoEnviado) {
+            throw new Error('El servidor de correo rechazó o no pudo entregar el acuse.');
+          }
+
+          await connection.query(
+            'UPDATE citas_biometricas SET notificacion_enviada = TRUE WHERE id = ?',
+            [citaId]
+          );
+        } catch (mailErr) {
+          console.error('❌ Error enviando correo en reprogramación:', mailErr);
+          throw new Error(`Cita reprogramada en base de datos, pero falló el correo: ${mailErr.message}`);
+        }
+      }
+
+      return { cita: citaActualizada, correoEnviado };
+    } finally {
+      connection.release();
+    }
+  }
+
+  //reenviar notificación de cita a un correo diferente al registrado
+  async reenviarNotificacionCita(citaId, usuarioId, { nuevo_correo }) {
+    const connection = await pool.getConnection();
+    try {
+      const cita = await this._obtenerCitaConContexto(connection, citaId);
+      if (!cita) throw new Error('Cita no encontrada');
+      if (!nuevo_correo || !nuevo_correo.includes('@')) {
+        throw new Error('Debes proporcionar un correo electrónico válido');
+      }
+
+      const correoAnterior = cita.correo_destinatario;
+      const correoLimpio = nuevo_correo.trim();
+
+      // 1. Actualizar el correo en la base de datos
+      await connection.query(
+        `UPDATE citas_biometricas 
+         SET correo_destinatario = ?, notificacion_enviada = FALSE, updated_at = NOW() 
+         WHERE id = ?`,
+        [correoLimpio, citaId]
+      );
+
+      // 2. Obtener los datos actualizados para generar el PDF y enviar
+      const citaActualizada = await this.obtenerCitaPorId(citaId);
+      const personaActualizada = await PersonaTramiteModel.findForCuip(cita.persona_id);
+
+      let pdfBuffer;
+      try {
+        pdfBuffer = await this._generarAcusePDF(citaActualizada, personaActualizada);
+      } catch (pdfErr) {
+        console.error('❌ Error real al generar PDF para reenvío:', pdfErr);
+        // CAMBIO 1: Lanzar el error para que NO falle en silencio y lo veas en la terminal
+        throw new Error(`Fallo al generar el acuse PDF: ${pdfErr.message}`);
+      }
+
+      let correoEnviado = false;
+      if (pdfBuffer) {
+        try {
+          correoEnviado = await EmailService.enviarNotificacionCita(
+            citaActualizada,
+            personaActualizada,
+            correoLimpio,
+            pdfBuffer
+          );
+
+          // CAMBIO 2: Si el servicio de correo devuelve false, lanzar error explicito
+          if (!correoEnviado) {
+            throw new Error('El servidor de correos rechazó o falló el envío.');
+          }
+
+          await connection.query(
+            'UPDATE citas_biometricas SET notificacion_enviada = TRUE WHERE id = ?',
+            [citaId]
+          );
+        } catch (mailErr) {
+          console.error('❌ Error real en EmailService:', mailErr);
+          throw new Error(`No se pudo enviar el correo: ${mailErr.message || mailErr}`);
+        }
+      }
+
+      // 3. Registrar en bitácora
+      await this._registrarBitacora(
+        connection,
+        citaId,
+        usuarioId,
+        'notificacion_reenviada',
+        'Reenvío de notificación de cita',
+        `Correo cambiado de ${correoAnterior || 'sin registro'} a ${correoLimpio}`,
+        { correo_anterior: correoAnterior, correo_nuevo: correoLimpio, envio_exitoso: correoEnviado }
+      );
+
+      return { cita: citaActualizada, correoEnviado };
     } finally {
       connection.release();
     }
