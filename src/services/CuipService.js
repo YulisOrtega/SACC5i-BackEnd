@@ -7,6 +7,9 @@ import TramiteAltaModel from '../models/TramiteAltaModel.js';
  * Capa de servicio separada siguiendo la arquitectura en capas del proyecto.
  */
 class CuipService {
+
+
+
   /**
    * Estructura completa de las 34 secciones del CUIP
    * Cada sección tiene: clave, nombre, tiene_excepcion, campos[]
@@ -39,12 +42,12 @@ class CuipService {
         { num: 11, nombre: 'C.U.R.P.' },
         { num: 12, nombre: 'Pasaporte' },
         { num: 13, nombre: 'Modo de Nacionalidad' },
-        { num: 14, nombre: 'Fecha de Naturalización' },     
-        { num: 15, nombre: 'País de Nacimiento' },         
-        { num: 16, nombre: 'Entidad de Nacimiento' },     
-        { num: 17, nombre: 'Municipio de Nacimiento' },     
-        { num: 18, nombre: 'Nacionalidad' },  
-        { num: 19, nombre: 'Selección de Estado Civil' }  
+        { num: 14, nombre: 'Fecha de Naturalización' },
+        { num: 15, nombre: 'País de Nacimiento' },
+        { num: 16, nombre: 'Entidad de Nacimiento' },
+        { num: 17, nombre: 'Municipio de Nacimiento' },
+        { num: 18, nombre: 'Nacionalidad' },
+        { num: 19, nombre: 'Selección de Estado Civil' }
       ]
     },
     {
@@ -637,15 +640,15 @@ class CuipService {
       clave: 'ficha_fotografica', numero: 32,
       nombre: '32. FICHA FOTOGRÁFICA', tiene_excepcion: false,
       campos: [
-        { num: 1,  nombre: 'CUIP' },
-        { num: 2,  nombre: 'Folio No.' },
-        { num: 3,  nombre: 'Dependencia' },
-        { num: 4,  nombre: 'Corporación' },
-        { num: 5,  nombre: 'Apellido Paterno' },
-        { num: 6,  nombre: 'Apellido Materno' },
-        { num: 7,  nombre: 'Nombre(s)' },
-        { num: 8,  nombre: 'Fecha de Nacimiento (Día/Mes/Año)' },
-        { num: 9,  nombre: 'Sexo (Masculino / Femenino)' },
+        { num: 1, nombre: 'CUIP' },
+        { num: 2, nombre: 'Folio No.' },
+        { num: 3, nombre: 'Dependencia' },
+        { num: 4, nombre: 'Corporación' },
+        { num: 5, nombre: 'Apellido Paterno' },
+        { num: 6, nombre: 'Apellido Materno' },
+        { num: 7, nombre: 'Nombre(s)' },
+        { num: 8, nombre: 'Fecha de Nacimiento (Día/Mes/Año)' },
+        { num: 9, nombre: 'Sexo (Masculino / Femenino)' },
         { num: 10, nombre: 'Fotografía de Perfil Izquierdo (Tamaño Filiación)' },
         { num: 11, nombre: 'Fotografía de Frente (Tamaño Filiación)' },
         { num: 12, nombre: 'Fotografía de Perfil Derecho (Tamaño Filiación)' },
@@ -662,15 +665,15 @@ class CuipService {
       clave: 'registro_decadactilar', numero: 33,
       nombre: '33. REGISTRO DECADACTILAR', tiene_excepcion: false,
       campos: [
-        { num: 1,  nombre: 'Nombre del Operador' },
-        { num: 2,  nombre: 'Firma del Operador' },
-        { num: 3,  nombre: 'Dependencia' },
-        { num: 4,  nombre: 'Corporación' },
-        { num: 5,  nombre: 'CUIP' },
-        { num: 6,  nombre: 'Apellido Paterno' },
-        { num: 7,  nombre: 'Apellido Materno' },
-        { num: 8,  nombre: 'Nombre(s)' },
-        { num: 9,  nombre: 'Fecha de Nacimiento (Día/Mes/Año)' },
+        { num: 1, nombre: 'Nombre del Operador' },
+        { num: 2, nombre: 'Firma del Operador' },
+        { num: 3, nombre: 'Dependencia' },
+        { num: 4, nombre: 'Corporación' },
+        { num: 5, nombre: 'CUIP' },
+        { num: 6, nombre: 'Apellido Paterno' },
+        { num: 7, nombre: 'Apellido Materno' },
+        { num: 8, nombre: 'Nombre(s)' },
+        { num: 9, nombre: 'Fecha de Nacimiento (Día/Mes/Año)' },
         { num: 10, nombre: 'Edad (Años)' },
         { num: 11, nombre: 'Sexo (Masculino / Femenino)' },
         { num: 12, nombre: 'Pulgar (Mano Derecha)' },
@@ -695,6 +698,54 @@ class CuipService {
       ]
     }
   ];
+
+
+  static normalizarTexto(value = '') {
+    return String(value)
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim();
+  }
+
+  static esSeccionEncabezadoRegistro(seccion = {}) {
+    const clave = CuipService.normalizarTexto(seccion?.clave || '');
+    const nombre = CuipService.normalizarTexto(seccion?.nombre || '');
+
+    return (
+      clave.includes('encabezado') ||
+      clave.includes('registro') ||
+      nombre.includes('encabezado') ||
+      nombre.includes('registro')
+    );
+  }
+
+  static esCampoCuipOpcional(seccion = {}, campo = {}) {
+    const campoNum = Number(campo?.num);
+    const campoNombre = CuipService.normalizarTexto(campo?.nombre || '');
+
+    return (
+      CuipService.esSeccionEncabezadoRegistro(seccion) &&
+      (
+        campoNum === 3 ||
+        campoNum === 4 ||
+        campoNombre === 'cuip' ||
+        campoNombre.includes('folio')
+      )
+    );
+  }
+
+  normalizarTexto(value = '') {
+    return CuipService.normalizarTexto(value);
+  }
+
+  esSeccionEncabezadoRegistro(seccion = {}) {
+    return CuipService.esSeccionEncabezadoRegistro(seccion);
+  }
+
+  esCampoCuipOpcional(seccion = {}, campo = {}) {
+    return CuipService.esCampoCuipOpcional(seccion, campo);
+  }
 
   /**
    * Generar estructura inicial de validación CUIP (todas las secciones con campos sin validar)
@@ -721,13 +772,13 @@ class CuipService {
     return CuipService.generarCuipInicial();
   }
 
- 
- /**
-   * Parsear y migrar cuip_validacion: 
-   * - Añade secciones/campos nuevos.
-   * - Elimina secciones/campos obsoletos.
-   * - Fuerza la actualización de los nombres de los campos si cambiaron de orden.
-   */
+
+  /**
+    * Parsear y migrar cuip_validacion: 
+    * - Añade secciones/campos nuevos.
+    * - Elimina secciones/campos obsoletos.
+    * - Fuerza la actualización de los nombres de los campos si cambiaron de orden.
+    */
   static parsarYMigrarCuip(raw) {
     let cuip = raw;
     if (!cuip) return CuipService.generarCuipInicial();
@@ -740,7 +791,7 @@ class CuipService {
     // 2. AGREGAR SECCIONES faltantes
     const clavesGuardadas = new Set(cuip.map(s => s.clave));
     const seccionesFaltantes = CuipService.CUIP_SECCIONES.filter(s => !clavesGuardadas.has(s.clave));
-    
+
     if (seccionesFaltantes.length > 0) {
       const nuevas = seccionesFaltantes.map(seccion => ({
         clave: seccion.clave,
@@ -760,7 +811,7 @@ class CuipService {
     // 3. SINCRONIZAR CAMPOS dentro de cada sección
     cuip = cuip.map(seccionGuardada => {
       const seccionDefinida = CuipService.CUIP_SECCIONES.find(s => s.clave === seccionGuardada.clave);
-      
+
       if (seccionDefinida) {
         const numerosCamposGuardados = new Set(seccionGuardada.campos.map(c => String(c.num)));
         const numerosCamposDefinidos = new Set(seccionDefinida.campos.map(c => String(c.num)));
@@ -778,7 +829,7 @@ class CuipService {
 
         // C) Agregar campos nuevos que faltan en lo guardado
         const camposFaltantes = seccionDefinida.campos.filter(c => !numerosCamposGuardados.has(String(c.num)));
-        
+
         if (camposFaltantes.length > 0) {
           const nuevosCampos = camposFaltantes.map(campo => ({
             num: campo.num,
@@ -934,9 +985,21 @@ class CuipService {
     const seccion = cuip.find(s => s.clave === seccionClave);
     if (!seccion) throw new Error(`Sección '${seccionClave}' no encontrada`);
 
-    // Toggle: si todos están validados, resetear a null; si no, validar todos
-    const todasValidadas = seccion.campos.length > 0 && seccion.campos.every(c => c.validado === true);
-    seccion.campos.forEach(c => { c.validado = todasValidadas ? null : true; });
+    const camposObligatorios = seccion.campos.filter(
+      (campo) => !CuipService.esCampoCuipOpcional(seccion, campo)
+    );
+
+    const todasValidadas =
+      camposObligatorios.length > 0 &&
+      camposObligatorios.every(c => c.validado === true);
+
+    seccion.campos.forEach((campo) => {
+      if (CuipService.esCampoCuipOpcional(seccion, campo)) {
+        return;
+      }
+
+      campo.validado = todasValidadas ? null : true;
+    });
 
     await PersonaTramiteModel.update(personaId, {
       cuip_validacion: JSON.stringify(cuip),
@@ -995,14 +1058,25 @@ class CuipService {
 
     const cuip = CuipService.parsarYMigrarCuip(persona.cuip_validacion);
 
-    // Toggle: si todos los campos de todas las secciones ya están validados, resetear; si no, validar todo
-    const camposTotales = cuip.flatMap(s => s.campos);
-    const todosValidados = camposTotales.length > 0 && camposTotales.every(c => c.validado === true);
+    const camposObligatorios = cuip.flatMap((seccion) =>
+      seccion.campos.filter((campo) => !CuipService.esCampoCuipOpcional(seccion, campo))
+    );
+
+    const todosValidados =
+      camposObligatorios.length > 0 &&
+      camposObligatorios.every(c => c.validado === true);
 
     const excepciones = [];
 
-    cuip.forEach(seccion => {
-      seccion.campos.forEach(c => { c.validado = todosValidados ? null : true; });
+    cuip.forEach((seccion) => {
+      seccion.campos.forEach((campo) => {
+        if (CuipService.esCampoCuipOpcional(seccion, campo)) {
+          return;
+        }
+
+        campo.validado = todosValidados ? null : true;
+      });
+
       if (!todosValidados && seccion.tiene_excepcion) {
         seccion.excepcion_activa = true;
         excepciones.push(seccion.clave);
@@ -1011,10 +1085,7 @@ class CuipService {
       }
     });
 
-    let excepcionesFinales = excepciones;
-    if (todosValidados) {
-      excepcionesFinales = [];
-    }
+    const excepcionesFinales = todosValidados ? [] : excepciones;
 
     await PersonaTramiteModel.update(personaId, {
       cuip_validacion: JSON.stringify(cuip),
@@ -1034,10 +1105,16 @@ class CuipService {
     if (persona.fase_cuip !== 'en_proceso') throw new Error('La validación CUIP no está en proceso');
 
     const cuip = CuipService.parsarYMigrarCuip(persona.cuip_validacion);
-
     // Verificar que todas las secciones estén completas
     for (const seccion of cuip) {
-      const sinRevisar = seccion.campos.filter(c => c.validado === null);
+      const sinRevisar = seccion.campos.filter((campo) => {
+        if (CuipService.esCampoCuipOpcional(seccion, campo)) {
+          return false;
+        }
+
+        return campo.validado === null || campo.validado === undefined;
+      });
+
       if (sinRevisar.length > 0) {
         throw new Error(`La sección "${seccion.nombre}" tiene ${sinRevisar.length} campo(s) sin revisar`);
       }
