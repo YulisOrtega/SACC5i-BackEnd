@@ -395,8 +395,16 @@ class CitaService {
 
     // Verificar que todas las secciones del CUIP estén revisadas
     const cuip = CuipService.parsarYMigrarCuip(persona.cuip_validacion);
+
     for (const seccion of cuip) {
-      const sinRevisar = seccion.campos.filter(c => c.validado === null);
+      const sinRevisar = seccion.campos.filter((campo) => {
+        if (CuipService.esCampoCuipOpcional(seccion, campo)) {
+          return false;
+        }
+
+        return campo.validado === null || campo.validado === undefined;
+      });
+
       if (sinRevisar.length > 0) {
         throw new Error(`La sección "${seccion.nombre}" tiene ${sinRevisar.length} campo(s) sin revisar`);
       }
@@ -936,8 +944,8 @@ class CitaService {
       }
 
       // 1. Si enviaron un nuevo correo, lo usamos; si no, mantenemos el que ya tenía la cita
-      const correoDestino = (nuevo_correo && nuevo_correo.includes('@')) 
-        ? nuevo_correo.trim() 
+      const correoDestino = (nuevo_correo && nuevo_correo.includes('@'))
+        ? nuevo_correo.trim()
         : cita.correo_destinatario;
 
       // 2. CORREGIDO: Se quitó el correoDestino repetido en el array de parámetros
