@@ -237,7 +237,6 @@ export const getUsuarios = async (req, res) => {
         throw error;
       }
 
-      // Compatibilidad mientras se ejecuta la migracion de sesiones por navegador.
       let legacyQuery = `
         SELECT u.id, u.nombre_completo, u.usuario, u.email, u.extension, u.region_id, u.rol,
                u.activo, u.password_changed, u.created_at, r.nombre as region_nombre,
@@ -310,7 +309,6 @@ export const createUsuario = async (req, res) => {
       rol
     } = req.body;
 
-    // Verificar que el usuario, email o extensión no existan
     const [existing] = await connection.query(
       'SELECT id FROM usuarios WHERE usuario = ? OR email = ? OR extension = ?',
       [usuario, email, extension]
@@ -323,7 +321,6 @@ export const createUsuario = async (req, res) => {
       });
     }
 
-    // Verificar que la región exista (si se proporciona)
     if (region_id) {
       const [region] = await connection.query(
         'SELECT id FROM regiones WHERE id = ?',
@@ -338,13 +335,9 @@ export const createUsuario = async (req, res) => {
       }
     }
 
-    // Password inicial = nombre de usuario
     const hashedPassword = await bcrypt.hash(usuario, 10);
-    
-    // Concatenar nombre completo
     const nombre_completo = `${nombre} ${apellido}`;
 
-    // Insertar usuario
     const [result] = await connection.query(
       `INSERT INTO usuarios (nombre_completo, usuario, email, password, extension, region_id, rol, password_changed)
        VALUES (?, ?, ?, ?, ?, ?, ?, FALSE)`,
@@ -386,7 +379,6 @@ export const updateUsuario = async (req, res) => {
     const { id } = req.params;
     const { usuario, email, nombre, apellido, extension, region_id, rol } = req.body;
 
-    // Verificar que el usuario existe
     const [existing] = await connection.query(
       'SELECT id, rol FROM usuarios WHERE id = ?',
       [id]
@@ -401,7 +393,6 @@ export const updateUsuario = async (req, res) => {
 
     const targetUser = existing[0];
 
-    // Un admin normal no puede editar cuentas super_admin.
     if (req.userRole === 'admin' && targetUser.rol === 'super_admin') {
       return res.status(403).json({
         success: false,
@@ -409,7 +400,6 @@ export const updateUsuario = async (req, res) => {
       });
     }
 
-    // Un admin normal no puede cambiar el rol de otro usuario.
     if (req.userRole === 'admin' && typeof rol !== 'undefined' && rol !== targetUser.rol) {
       return res.status(403).json({
         success: false,
@@ -417,7 +407,6 @@ export const updateUsuario = async (req, res) => {
       });
     }
 
-    // Si se quiere cambiar el usuario, verificar que no exista otro con ese username
     if (usuario) {
       const [duplicate] = await connection.query(
         'SELECT id FROM usuarios WHERE usuario = ? AND id != ?',
@@ -432,7 +421,6 @@ export const updateUsuario = async (req, res) => {
       }
     }
 
-    // Si se quiere cambiar el email, verificar que no exista otro con ese email
     if (email) {
       const [duplicateEmail] = await connection.query(
         'SELECT id FROM usuarios WHERE email = ? AND id != ?',
@@ -447,7 +435,6 @@ export const updateUsuario = async (req, res) => {
       }
     }
 
-    // Verificar región si se proporciona
     if (region_id) {
       const [region] = await connection.query(
         'SELECT id FROM regiones WHERE id = ?',
@@ -462,12 +449,10 @@ export const updateUsuario = async (req, res) => {
       }
     }
 
-    // Concatenar nombre completo si se proporcionan nombre y/o apellido
     let nombre_completo = null;
     if (nombre && apellido) {
       nombre_completo = `${nombre} ${apellido}`;
     } else if (nombre || apellido) {
-      // Si solo se proporciona uno, obtener el otro de la base de datos
       const [currentUser] = await connection.query(
         'SELECT nombre_completo FROM usuarios WHERE id = ?',
         [id]
@@ -544,7 +529,6 @@ export const deleteUsuario = async (req, res) => {
 
     await connection.beginTransaction();
 
-    // Reasignar autor de accesos temporales al super admin actual para evitar bloqueo por FK RESTRICT.
     try {
       await connection.query(
         `UPDATE usuarios_accesos_temporales
@@ -587,7 +571,6 @@ export const deleteUsuario = async (req, res) => {
     try {
       await connection.rollback();
     } catch (rollbackError) {
-      // Ignorar errores de rollback cuando no hay transaccion activa
     }
 
     console.error('Error al eliminar usuario:', error);
@@ -601,137 +584,6 @@ export const deleteUsuario = async (req, res) => {
   }
 };
 
-// Borrar todos los registros operativos asociados a un analista (solo Super Admin)
-/*export const purgeAnalistaRegistros = async (req, res) => {
-  const connection = await pool.getConnection();
-
-  try {
-    const targetId = Number(req.params.id);
-
-    if (!Number.isInteger(targetId) || targetId <= 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'ID de usuario invalido'
-      });
-    }
-
-    const [users] = await connection.query(
-      'SELECT id, usuario, nombre_completo, rol, activo FROM usuarios WHERE id = ?',
-      [targetId]
-    );
-
-    if (users.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Usuario no encontrado'
-      });
-    }
-
-    const targetUser = users[0];
-
-    if (targetUser.rol !== 'analista') {
-      return res.status(400).json({
-        success: false,
-        message: 'La limpieza de registros solo aplica a usuarios con rol analista'
-      });
-    }
-
-    const resumenAntes = await obtenerResumenRegistrosAnalista(connection, targetId);
-    const totalEliminados = Object.values(resumenAntes)
-      .reduce((acc, value) => acc + Number(value || 0), 0);
-
-    if (totalEliminados === 0) {
-      return res.json({
-        success: true,
-        message: 'El analista no tiene registros asociados para eliminar',
-        data: {
-          usuario: {
-            id: targetUser.id,
-            usuario: targetUser.usuario,
-            nombre_completo: targetUser.nombre_completo,
-            rol: targetUser.rol,
-            activo: Boolean(targetUser.activo)
-          },
-          eliminados: resumenAntes,
-          total_eliminados: 0
-        }
-      });
-    }
-
-    await connection.beginTransaction();
-
-    await safeDeleteQuery(connection, `
-      DELETE f
-      FROM finalizados f
-      INNER JOIN tramites_alta t ON t.id = f.tramite_alta_id
-      WHERE t.usuario_analista_c5_id = ?
-    `, [targetId]);
-
-    await safeDeleteQuery(connection, `
-      DELETE c
-      FROM citas_biometricas c
-      INNER JOIN tramites_alta t ON t.id = c.tramite_alta_id
-      WHERE t.usuario_analista_c5_id = ?
-    `, [targetId]);
-
-    await safeDeleteQuery(connection, `
-      DELETE h
-      FROM historial_tramites_alta h
-      INNER JOIN tramites_alta t ON t.id = h.tramite_alta_id
-      WHERE t.usuario_analista_c5_id = ?
-    `, [targetId]);
-
-    await safeDeleteQuery(connection, `
-      DELETE p
-      FROM personas_tramite_alta p
-      INNER JOIN tramites_alta t ON t.id = p.tramite_alta_id
-      WHERE t.usuario_analista_c5_id = ?
-    `, [targetId]);
-
-    await safeDeleteQuery(connection, `
-      DELETE FROM tramites_alta
-      WHERE usuario_analista_c5_id = ?
-    `, [targetId]);
-
-    await safeDeleteQuery(connection, `
-      DELETE FROM analista_municipios_dashboard
-      WHERE usuario_analista_id = ?
-    `, [targetId]);
-
-    await connection.commit();
-
-    return res.json({
-      success: true,
-      message: 'Registros del analista eliminados exitosamente',
-      data: {
-        usuario: {
-          id: targetUser.id,
-          usuario: targetUser.usuario,
-          nombre_completo: targetUser.nombre_completo,
-          rol: targetUser.rol,
-          activo: Boolean(targetUser.activo)
-        },
-        eliminados: resumenAntes,
-        total_eliminados: totalEliminados
-      }
-    });
-  } catch (error) {
-    try {
-      await connection.rollback();
-    } catch (rollbackError) {
-      // Ignorar errores de rollback cuando no hay transaccion activa
-    }
-
-    console.error('Error al limpiar registros de analista:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Error al limpiar registros del analista',
-      error: error.message
-    });
-  } finally {
-    connection.release();
-  }
-};*/
 // Borrar todos los registros operativos asociados a un usuario (Analista o Municipio)
 export const purgeUsuarioRegistros = async (req, res) => {
   const connection = await pool.getConnection();
@@ -745,7 +597,6 @@ export const purgeUsuarioRegistros = async (req, res) => {
       });
     }
 
-    // Agregamos municipio_id a la consulta para saber qué documentos borrar
     const [users] = await connection.query(
       'SELECT id, usuario, nombre_completo, rol, activo, municipio_id FROM usuarios WHERE id = ?',
       [targetId]
@@ -760,7 +611,6 @@ export const purgeUsuarioRegistros = async (req, res) => {
 
     const targetUser = users[0];
 
-    // Validamos que solo aplique a estos dos roles
     if (targetUser.rol !== 'analista' && targetUser.rol !== 'municipio') {
       return res.status(400).json({
         success: false,
@@ -773,168 +623,117 @@ export const purgeUsuarioRegistros = async (req, res) => {
     let totalEliminados = 0;
     let resumenAntes = {};
 
-    // ==========================================
-    // LÓGICA DE BORRADO PARA ANALISTAS
-    // ==========================================
-if (targetUser.rol === 'analista') {
-  resumenAntes = await obtenerResumenRegistrosAnalista(connection, targetId);
-  totalEliminados = Object.values(resumenAntes)
-    .reduce((acc, value) => acc + Number(value || 0), 0);
+    if (targetUser.rol === 'analista') {
+      resumenAntes = await obtenerResumenRegistrosAnalista(connection, targetId);
+      totalEliminados = Object.values(resumenAntes)
+        .reduce((acc, value) => acc + Number(value || 0), 0);
 
-  // ==========================================
-  // Obtener documentos de Revisión Municipios
-  // tocados por el analista ANTES de borrar bitácoras
-  // ==========================================
-  const [documentosRevision] = await connection.query(`
-    SELECT DISTINCT d.id
-    FROM documentos_municipio d
-    INNER JOIN bitacora_documentos b ON b.documento_id = d.id
-    WHERE b.usuario_id = ?
-  `, [targetId]);
+      const [documentosRevision] = await connection.query(`
+        SELECT DISTINCT d.id
+        FROM documentos_municipio d
+        INNER JOIN bitacora_documentos b ON b.documento_id = d.id
+        WHERE b.usuario_id = ?
+      `, [targetId]);
 
-  const documentosRevisionIds = documentosRevision.map(doc => doc.id);
-  totalEliminados += documentosRevisionIds.length;
+      const documentosRevisionIds = documentosRevision.map(doc => doc.id);
+      totalEliminados += documentosRevisionIds.length;
 
-  if (totalEliminados > 0) {
-    // ==========================================
-    // 1. Finalizados asociados al analista
-    // ==========================================
-    await safeDeleteQuery(connection, `
-      DELETE f
-      FROM finalizados f
-      LEFT JOIN tramites_alta t ON t.id = f.tramite_alta_id
-      LEFT JOIN personas_tramite_alta p ON p.id = f.persona_tramite_id
-      WHERE t.usuario_analista_c5_id = ?
-         OR p.revisado_por_usuario_id = ?
-         OR f.baja_usuario_id = ?
-         OR f.acuse_persona_uploaded_by_id = ?
-    `, [targetId, targetId, targetId, targetId]);
+      if (totalEliminados > 0) {
+        await safeDeleteQuery(connection, `
+          DELETE f
+          FROM finalizados f
+          LEFT JOIN tramites_alta t ON t.id = f.tramite_alta_id
+          LEFT JOIN personas_tramite_alta p ON p.id = f.persona_tramite_id
+          WHERE t.usuario_analista_c5_id = ?
+             OR p.revisado_por_usuario_id = ?
+             OR f.baja_usuario_id = ?
+             OR f.acuse_persona_uploaded_by_id = ?
+        `, [targetId, targetId, targetId, targetId]);
 
-    // ==========================================
-    // 2. Citas asociadas a trámites del analista
-    // ==========================================
-    await safeDeleteQuery(connection, `
-      DELETE c
-      FROM citas_biometricas c
-      INNER JOIN tramites_alta t ON t.id = c.tramite_alta_id
-      WHERE t.usuario_analista_c5_id = ?
-    `, [targetId]);
+        await safeDeleteQuery(connection, `
+          DELETE c
+          FROM citas_biometricas c
+          INNER JOIN tramites_alta t ON t.id = c.tramite_alta_id
+          WHERE t.usuario_analista_c5_id = ?
+        `, [targetId]);
 
-    // ==========================================
-    // 3. Citas asociadas a personas revisadas
-    // ==========================================
-    await safeDeleteQuery(connection, `
-      DELETE c
-      FROM citas_biometricas c
-      INNER JOIN personas_tramite_alta p ON p.id = c.persona_tramite_id
-      WHERE p.revisado_por_usuario_id = ?
-    `, [targetId]);
+        await safeDeleteQuery(connection, `
+          DELETE c
+          FROM citas_biometricas c
+          INNER JOIN personas_tramite_alta p ON p.id = c.persona_tramite_id
+          WHERE p.revisado_por_usuario_id = ?
+        `, [targetId]);
 
-    // ==========================================
-    // 4. Bitácora de citas hecha por el analista
-    // ==========================================
-    await safeDeleteQuery(connection, `
-      DELETE FROM citas_bitacora
-      WHERE usuario_id = ?
-    `, [targetId]);
+        await safeDeleteQuery(connection, `
+          DELETE FROM citas_bitacora
+          WHERE usuario_id = ?
+        `, [targetId]);
 
-    // ==========================================
-    // 5. Historial ligado a trámites del analista
-    // ==========================================
-    await safeDeleteQuery(connection, `
-      DELETE h
-      FROM historial_tramites_alta h
-      INNER JOIN tramites_alta t ON t.id = h.tramite_alta_id
-      WHERE t.usuario_analista_c5_id = ?
-    `, [targetId]);
+        await safeDeleteQuery(connection, `
+          DELETE h
+          FROM historial_tramites_alta h
+          INNER JOIN tramites_alta t ON t.id = h.tramite_alta_id
+          WHERE t.usuario_analista_c5_id = ?
+        `, [targetId]);
 
-    // ==========================================
-    // 6. Historial registrado directamente por el analista
-    // ==========================================
-    await safeDeleteQuery(connection, `
-      DELETE FROM historial_tramites_alta
-      WHERE usuario_id = ?
-    `, [targetId]);
+        await safeDeleteQuery(connection, `
+          DELETE FROM historial_tramites_alta
+          WHERE usuario_id = ?
+        `, [targetId]);
 
-    // ==========================================
-    // 7. Revisión Municipios
-    // Primero borrar bitácoras, luego documentos
-    // ==========================================
-    if (documentosRevisionIds.length > 0) {
-      const placeholders = documentosRevisionIds.map(() => '?').join(',');
+        if (documentosRevisionIds.length > 0) {
+          const placeholders = documentosRevisionIds.map(() => '?').join(',');
 
-      await safeDeleteQuery(connection, `
-        DELETE FROM bitacora_documentos
-        WHERE documento_id IN (${placeholders})
-      `, documentosRevisionIds);
+          await safeDeleteQuery(connection, `
+            DELETE FROM bitacora_documentos
+            WHERE documento_id IN (${placeholders})
+          `, documentosRevisionIds);
 
-      await safeDeleteQuery(connection, `
-        DELETE FROM documentos_municipio
-        WHERE id IN (${placeholders})
-      `, documentosRevisionIds);
+          await safeDeleteQuery(connection, `
+            DELETE FROM documentos_municipio
+            WHERE id IN (${placeholders})
+          `, documentosRevisionIds);
+        }
+
+        await safeDeleteQuery(connection, `
+          DELETE p
+          FROM personas_tramite_alta p
+          INNER JOIN tramites_alta t ON t.id = p.tramite_alta_id
+          WHERE t.usuario_analista_c5_id = ?
+        `, [targetId]);
+
+        await safeDeleteQuery(connection, `
+          DELETE FROM personas_tramite_alta
+          WHERE revisado_por_usuario_id = ?
+        `, [targetId]);
+
+        await safeDeleteQuery(connection, `
+          DELETE FROM tramites_alta
+          WHERE usuario_analista_c5_id = ?
+        `, [targetId]);
+
+        await safeDeleteQuery(connection, `
+          DELETE FROM analista_municipios_dashboard
+          WHERE usuario_analista_id = ?
+        `, [targetId]);
+
+        await safeDeleteQuery(connection, `
+          DELETE FROM listados_nominales
+          WHERE usuario_id = ?
+        `, [targetId]);
+
+        await safeDeleteQuery(connection, `
+          DELETE FROM repositorio_municipios_documentos
+          WHERE usuario_id = ?
+        `, [targetId]);
+      }
     }
-
-    // ==========================================
-    // 8. Personas pertenecientes a trámites del analista
-    // ==========================================
-    await safeDeleteQuery(connection, `
-      DELETE p
-      FROM personas_tramite_alta p
-      INNER JOIN tramites_alta t ON t.id = p.tramite_alta_id
-      WHERE t.usuario_analista_c5_id = ?
-    `, [targetId]);
-
-    // ==========================================
-    // 9. Personas revisadas directamente por el analista
-    // ==========================================
-    await safeDeleteQuery(connection, `
-      DELETE FROM personas_tramite_alta
-      WHERE revisado_por_usuario_id = ?
-    `, [targetId]);
-
-    // ==========================================
-    // 10. Trámites asignados al analista
-    // ==========================================
-    await safeDeleteQuery(connection, `
-      DELETE FROM tramites_alta
-      WHERE usuario_analista_c5_id = ?
-    `, [targetId]);
-
-    // ==========================================
-    // 11. Dashboard del analista
-    // ==========================================
-    await safeDeleteQuery(connection, `
-      DELETE FROM analista_municipios_dashboard
-      WHERE usuario_analista_id = ?
-    `, [targetId]);
-
-    // ==========================================
-    // 12. Listado Nominal
-    // ==========================================
-    await safeDeleteQuery(connection, `
-      DELETE FROM listados_nominales
-      WHERE usuario_id = ?
-    `, [targetId]);
-
-    // ==========================================
-    // 13. Personal Activo
-    // ==========================================
-    await safeDeleteQuery(connection, `
-      DELETE FROM repositorio_municipios_documentos
-      WHERE usuario_id = ?
-    `, [targetId]);
-  }
-}
-    // ==========================================
-    // LÓGICA DE BORRADO PARA MUNICIPIOS
-    // ==========================================
     else if (targetUser.rol === 'municipio') {
       if (!targetUser.municipio_id) {
         await connection.rollback();
         return res.status(400).json({ success: false, message: 'Usuario sin municipio enlazado.' });
       }
 
-      // 1. Contamos lo que hay en las tres tablas afectadas
       const [countDocs] = await connection.query('SELECT COUNT(*) as total FROM documentos_municipio WHERE municipio_id = ?', [targetUser.municipio_id]);
       const [countNominal] = await connection.query('SELECT COUNT(*) as total FROM listados_nominales WHERE usuario_id = ?', [targetId]);
       const [countPersonalActivo] = await connection.query('SELECT COUNT(*) as total FROM repositorio_municipios_documentos WHERE usuario_id = ?', [targetId]);
@@ -942,25 +741,20 @@ if (targetUser.rol === 'analista') {
       totalEliminados = countDocs[0].total + countNominal[0].total + countPersonalActivo[0].total;
 
       if (totalEliminados > 0) {
-        // A. Borrar bitácora de documentos_municipio
         await safeDeleteQuery(connection, `
           DELETE b FROM bitacora_documentos b
           INNER JOIN documentos_municipio d ON b.documento_id = d.id
           WHERE d.municipio_id = ?
         `, [targetUser.municipio_id]);
 
-        // B. Borrar documentos_municipio
         await safeDeleteQuery(connection, `DELETE FROM documentos_municipio WHERE municipio_id = ?`, [targetUser.municipio_id]);
 
-        // C. Borrar Listado Nominal (usando usuario_id)
         await safeDeleteQuery(connection, `DELETE FROM listados_nominales WHERE usuario_id = ?`, [targetId]);
 
-        // D. Borrar Personal Activo / Repositorio (usando usuario_id)
         await safeDeleteQuery(connection, `DELETE FROM repositorio_municipios_documentos WHERE usuario_id = ?`, [targetId]);
       }
     }
 
-    // SI NO HAY NADA QUE BORRAR
     if (totalEliminados === 0) {
       await connection.rollback();
       return res.json({
@@ -1002,7 +796,6 @@ if (targetUser.rol === 'analista') {
     try {
       await connection.rollback();
     } catch (rollbackError) {
-      // Ignorar
     }
     console.error('Error al limpiar registros del usuario:', error);
     return res.status(500).json({
@@ -1022,7 +815,6 @@ export const deactivateUsuario = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // No permitir desactivar super admins
     const [user] = await connection.query(
       'SELECT rol FROM usuarios WHERE id = ?',
       [id]
@@ -1042,7 +834,6 @@ export const deactivateUsuario = async (req, res) => {
       });
     }
 
-    // Desactivar usuario (Soft Delete)
     await connection.query(
       'UPDATE usuarios SET activo = FALSE WHERE id = ?',
       [id]
@@ -1101,7 +892,6 @@ export const resetPassword = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Obtener usuario objetivo
     const [users] = await connection.query(
       'SELECT id, usuario, rol FROM usuarios WHERE id = ?',
       [id]
@@ -1116,7 +906,6 @@ export const resetPassword = async (req, res) => {
 
     const userTarget = users[0];
 
-    // Un admin normal no puede resetear la contraseña de un super_admin.
     if (req.userRole === 'admin' && userTarget.rol === 'super_admin') {
       return res.status(403).json({
         success: false,
@@ -1163,7 +952,6 @@ export const resetPassword = async (req, res) => {
     try {
       await connection.rollback();
     } catch (rollbackError) {
-      // Ignorar errores de rollback cuando no hay transacción activa
     }
 
     console.error('Error al resetear contraseña:', error);
@@ -1183,8 +971,9 @@ export const generarPasswordTemporal = async (req, res) => {
 
   try {
     const { id } = req.params;
-    const duracionDias = Number(req.body.duracion_dias);
+    const duracionDias = Math.min(40, Number(req.body.duracion_dias) || 7);
     const motivo = req.body.motivo ? String(req.body.motivo).trim() : null;
+    const usuarioTemporal = req.body.usuario_temporal ? String(req.body.usuario_temporal).trim() : null;
 
     const [users] = await connection.query(
       'SELECT id, usuario, rol, activo FROM usuarios WHERE id = ?',
@@ -1218,6 +1007,7 @@ export const generarPasswordTemporal = async (req, res) => {
 
     const resultado = await crearAccesoTemporal(connection, {
       usuarioId: userTarget.id,
+      usuarioTemporal,
       creadoPorId: req.userId,
       creadoPorRol: req.userRole,
       duracionDias,
@@ -1233,6 +1023,7 @@ export const generarPasswordTemporal = async (req, res) => {
       message: 'Contraseña temporal generada exitosamente',
       data: {
         usuario: userTarget.usuario,
+        usuario_temporal: resultado.usuarioTemporal || userTarget.usuario,
         password_temporal: resultado.passwordTemporal,
         duracion_dias: duracionDias,
         expira_en: toIsoDate(resultado.expiresAt)
@@ -1242,7 +1033,6 @@ export const generarPasswordTemporal = async (req, res) => {
     try {
       await connection.rollback();
     } catch (rollbackError) {
-      // Ignorar errores de rollback cuando no hay transacción activa
     }
 
     console.error('Error al generar contraseña temporal:', error);
@@ -1383,7 +1173,6 @@ export const revocarPasswordTemporal = async (req, res) => {
     try {
       await connection.rollback();
     } catch (rollbackError) {
-      // Ignorar errores de rollback cuando no hay transacción activa
     }
 
     console.error('Error al revocar contraseña temporal:', error);
@@ -1412,7 +1201,6 @@ export const getEstadisticasAdmin = async (req, res) => {
   const connection = await pool.getConnection();
   
   try {
-    // Total de usuarios por rol
     const [porRol] = await connection.query(`
       SELECT rol, COUNT(*) as cantidad, 
              SUM(CASE WHEN activo = TRUE THEN 1 ELSE 0 END) as activos
@@ -1420,14 +1208,12 @@ export const getEstadisticasAdmin = async (req, res) => {
       GROUP BY rol
     `);
 
-    // Usuarios que no han cambiado contraseña
     const [sinCambiar] = await connection.query(`
       SELECT COUNT(*) as cantidad
       FROM usuarios
       WHERE password_changed = FALSE AND activo = TRUE
     `);
 
-    // Trámites por región
     const [porRegion] = await connection.query(`
       SELECT r.nombre, COUNT(t.id) as total_tramites
       FROM regiones r

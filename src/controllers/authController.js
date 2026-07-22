@@ -56,7 +56,6 @@ const registerBrowserSession = async (connection, {
   }
 };
 
-// Generar token JWT
 const generateToken = (userId, extraClaims = {}) => {
   return jwt.sign(
     { id: userId, ...extraClaims },
@@ -65,8 +64,6 @@ const generateToken = (userId, extraClaims = {}) => {
   );
 };
 
-// Registrar nuevo usuario - DESHABILITADO
-// Solo los administradores pueden crear usuarios desde /api/admin/usuarios
 export const register = async (req, res) => {
   res.status(403).json({
     success: false,
@@ -75,7 +72,7 @@ export const register = async (req, res) => {
   });
 };
 
-// Login de usuario
+// Login de usuario corregido para sesiones temporales delegadas
 export const login = async (req, res) => {
   const connection = await pool.getConnection();
   
@@ -84,36 +81,32 @@ export const login = async (req, res) => {
     const ipAddress = getClientIp(req);
     const userAgent = req.get('user-agent') || null;
 
-    // Buscar usuario por usuario o email
+    const passwordInput = String(password || '').trim();
+    const usernameInput = String(username || '').trim();
+
+    // 1. Buscamos primero en la tabla general de usuarios
     const [users] = await connection.query(
       'SELECT * FROM usuarios WHERE (usuario = ? OR email = ?) AND activo = TRUE',
-      [username, username]
+      [usernameInput, usernameInput]
     );
 
-    if (users.length === 0) {
-      return res.status(401).json({
-        success: false,
-        message: 'Usuario o contraseña incorrectos'
-      });
-    }
-
-    const user = users[0];
-
-    const passwordInput = String(password || '');
-
-    // Verificar contraseña principal
-    const isValidPassword = await bcrypt.compare(passwordInput, user.password);
-
+    let user = users.length > 0 ? users[0] : null;
+    let isValidPassword = false;
     let accesoTemporalValido = false;
     let accesoTemporal = null;
 
+    if (user) {
+      isValidPassword = await bcrypt.compare(passwordInput, user.password);
+    }
+
+    // 2. Si no fue un login normal, validamos en la tabla de contraseñas temporales
     if (!isValidPassword) {
       try {
         const temporal = await validarContrasenaTemporal(connection, {
-          usuarioId: user.id,
+          username: usernameInput,
           password: passwordInput,
-          actorId: user.id,
-          actorRol: user.rol,
+          actorId: user ? user.id : null,
+          actorRol: user ? user.rol : null,
           ipAddress,
           userAgent
         });
@@ -121,6 +114,17 @@ export const login = async (req, res) => {
         accesoTemporalValido = temporal.valida;
         if (temporal.valida) {
           accesoTemporal = temporal;
+          // Si iniciaron sesión escribiendo el nombre temporal (ej. yulissa_ortega),
+          // cargamos los datos del usuario titular (ej. patricia_flores) para sus permisos
+          if (!user) {
+            const [ownerUsers] = await connection.query(
+              'SELECT * FROM usuarios WHERE id = ? AND activo = TRUE',
+              [temporal.usuarioId]
+            );
+            if (ownerUsers.length > 0) {
+              user = ownerUsers[0];
+            }
+          }
         }
       } catch (error) {
         if (error?.code !== 'ER_NO_SUCH_TABLE') {
@@ -129,7 +133,8 @@ export const login = async (req, res) => {
       }
     }
 
-    if (!isValidPassword && !accesoTemporalValido) {
+    // Si las contraseñas no coincidieron en ningún lado, rechazamos el acceso
+    if (!user || (!isValidPassword && !accesoTemporalValido)) {
       return res.status(401).json({
         success: false,
         message: 'Usuario o contraseña incorrectos'
@@ -150,11 +155,11 @@ export const login = async (req, res) => {
       [sesionActivaId, user.id]
     );
 
-    // Generar token
     const token = generateToken(user.id, {
       session_id: sesionActivaId,
       is_temp_session: accesoTemporalValido,
       temp_access_id: accesoTemporal?.accesoTemporalId || null,
+      temp_user: accesoTemporal?.usuarioTemporal || null,
       temp_expires_at: toIsoDate(accesoTemporal?.expiresAt)
     });
 
@@ -163,8 +168,12 @@ export const login = async (req, res) => {
       message: 'Inicio de sesión exitoso',
       usuario: {
         id: user.id,
-        nombre_completo: user.nombre_completo,
-        usuario: user.usuario,
+        nombre_completo: accesoTemporalValido && accesoTemporal?.usuarioTemporal 
+          ? `${accesoTemporal.usuarioTemporal} (Cubre a: ${user.nombre_completo})` 
+          : user.nombre_completo,
+        usuario: accesoTemporalValido && accesoTemporal?.usuarioTemporal 
+          ? accesoTemporal.usuarioTemporal 
+          : user.usuario,
         email: user.email,
         extension: user.extension,
         region_id: user.region_id,
@@ -175,7 +184,6 @@ export const login = async (req, res) => {
       },
       token,
       session_idle_timeout_minutes: SESSION_IDLE_TIMEOUT_MINUTES,
-      // Alerta si no ha cambiado la contraseña
       warning: !user.password_changed ? 'Por seguridad, se recomienda cambiar tu contraseña temporal' : null
     });
 
@@ -191,7 +199,6 @@ export const login = async (req, res) => {
   }
 };
 
-// Obtener perfil del usuario autenticado
 export const getProfile = async (req, res) => {
   const connection = await pool.getConnection();
   
@@ -213,15 +220,23 @@ export const getProfile = async (req, res) => {
       });
     }
 
+    const userData = users[0];
+
+    // Si es sesión temporal, sobreescribimos el nombre a mostrar con la variable del token
+    if (req.isTemporarySession && req.user?.temp_user) {
+      userData.nombre_completo = `${req.user.temp_user} (Cubre a: ${userData.nombre_completo})`;
+      userData.usuario = req.user.temp_user;
+    }
+
     res.json({
       success: true,
       data: {
-        ...users[0],
+        ...userData,
         sesion_temporal: Boolean(req.isTemporarySession),
         sesion_temporal_expira_en: req.tempSessionExpiresAt || null
       },
       session_idle_timeout_minutes: req.sessionIdleTimeoutMinutes || SESSION_IDLE_TIMEOUT_MINUTES,
-      warning: !users[0].password_changed ? 'Por seguridad, se recomienda cambiar tu contraseña temporal' : null
+      warning: !userData.password_changed ? 'Por seguridad, se recomienda cambiar tu contraseña temporal' : null
     });
 
   } catch (error) {
@@ -236,7 +251,6 @@ export const getProfile = async (req, res) => {
   }
 };
 
-// Mantener sesión activa mientras haya actividad del usuario
 export const heartbeatSession = async (req, res) => {
   res.json({
     success: true,
@@ -245,7 +259,6 @@ export const heartbeatSession = async (req, res) => {
   });
 };
 
-// Cerrar sesión actual (por navegador/token)
 export const logoutSession = async (req, res) => {
   const connection = await pool.getConnection();
 
@@ -331,7 +344,6 @@ export const logoutSession = async (req, res) => {
   }
 };
 
-// Actualizar perfil
 export const updateProfile = async (req, res) => {
   const connection = await pool.getConnection();
   
@@ -352,7 +364,6 @@ export const updateProfile = async (req, res) => {
       });
     }
 
-    // Verificar que el email no esté siendo usado por otro usuario
     if (email) {
       const [existingEmail] = await connection.query(
         'SELECT id FROM usuarios WHERE email = ? AND id != ?',
@@ -392,7 +403,6 @@ export const updateProfile = async (req, res) => {
   }
 };
 
-// Cambiar contraseña
 export const changePassword = async (req, res) => {
   const connection = await pool.getConnection();
   
@@ -406,7 +416,6 @@ export const changePassword = async (req, res) => {
       });
     }
 
-    // Obtener contraseña actual
     const [users] = await connection.query(
       'SELECT password FROM usuarios WHERE id = ?',
       [req.userId]
@@ -419,7 +428,6 @@ export const changePassword = async (req, res) => {
       });
     }
 
-    // Verificar contraseña actual
     const isValid = await bcrypt.compare(currentPassword, users[0].password);
 
     if (!isValid) {
@@ -429,10 +437,8 @@ export const changePassword = async (req, res) => {
       });
     }
 
-    // Encriptar nueva contraseña
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-    // Actualizar contraseña Y marcar como cambiada
     await connection.query(
       'UPDATE usuarios SET password = ?, password_changed = TRUE WHERE id = ?',
       [hashedPassword, req.userId]

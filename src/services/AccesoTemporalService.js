@@ -157,6 +157,7 @@ export const crearAccesoTemporal = async (
   connection,
   {
     usuarioId,
+    usuarioTemporal = null,
     creadoPorId,
     creadoPorRol,
     duracionDias,
@@ -191,9 +192,9 @@ export const crearAccesoTemporal = async (
 
   const [insertResult] = await connection.query(
     `INSERT INTO usuarios_accesos_temporales
-     (usuario_id, password_hash, duracion_dias, expires_at, activo, motivo, creado_por_id)
-     VALUES (?, ?, ?, DATE_ADD(NOW(), INTERVAL ? DAY), TRUE, ?, ?)`,
-    [usuarioId, passwordHash, duracionDias, duracionDias, motivo || null, creadoPorId]
+     (usuario_id, usuario_temporal, password_hash, duracion_dias, expires_at, activo, motivo, creado_por_id)
+     VALUES (?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL ? DAY), TRUE, ?, ?)`,
+    [usuarioId, usuarioTemporal, passwordHash, duracionDias, duracionDias, motivo || null, creadoPorId]
   );
 
   const accesoTemporalId = insertResult.insertId;
@@ -211,8 +212,9 @@ export const crearAccesoTemporal = async (
     actorId: creadoPorId,
     actorRol: creadoPorRol,
     accion: 'generada',
-    descripcion: `Acceso temporal generado por ${duracionDias} día(s)`,
+    descripcion: `Acceso temporal generado para '${usuarioTemporal || 'Titular'}' por ${duracionDias} día(s)`,
     metadata: {
+      usuario_temporal: usuarioTemporal,
       duracion_dias: duracionDias,
       motivo: motivo || null,
       expires_at: toIsoDate(expiresAt),
@@ -223,6 +225,7 @@ export const crearAccesoTemporal = async (
 
   return {
     accesoTemporalId,
+    usuarioTemporal,
     passwordTemporal,
     expiresAt
   };
@@ -235,6 +238,7 @@ export const obtenerAccesoTemporalActivo = async (connection, usuarioId) => {
     `SELECT
        uat.id,
        uat.usuario_id,
+       uat.usuario_temporal,
        uat.duracion_dias,
        uat.expires_at,
        uat.motivo,
@@ -261,6 +265,7 @@ export const obtenerAccesoTemporalActivo = async (connection, usuarioId) => {
   return {
     id: acceso.id,
     usuario_id: acceso.usuario_id,
+    usuario_temporal: acceso.usuario_temporal,
     duracion_dias: acceso.duracion_dias,
     motivo: acceso.motivo,
     creado_por_id: acceso.creado_por_id,
@@ -316,7 +321,7 @@ export const obtenerBitacoraAccesosTemporales = async (
 export const validarContrasenaTemporal = async (
   connection,
   {
-    usuarioId,
+    username,
     password,
     actorId,
     actorRol,
@@ -324,21 +329,22 @@ export const validarContrasenaTemporal = async (
     userAgent = null
   }
 ) => {
-  if (!password) {
+  if (!password || !username) {
     return { valida: false };
   }
 
-  await expirarAccesosTemporales(connection, usuarioId);
-
+  // Ahora buscamos si el username que ponen en el login coincide con el usuario del titular OR con el usuario temporal
   const [candidatos] = await connection.query(
-    `SELECT id, password_hash, expires_at
-     FROM usuarios_accesos_temporales
-     WHERE usuario_id = ?
-       AND activo = TRUE
-       AND expires_at > NOW()
-     ORDER BY created_at DESC
-     LIMIT ?`,
-    [usuarioId, MAX_TEMP_PASSWORD_CANDIDATES]
+    `SELECT uat.id, uat.usuario_id, uat.usuario_temporal, uat.password_hash, uat.expires_at, u.usuario as usuario_titular, u.nombre_completo as nombre_titular, u.rol
+     FROM usuarios_accesos_temporales uat
+     INNER JOIN usuarios u ON u.id = uat.usuario_id
+     WHERE (uat.usuario_temporal = ? OR u.usuario = ?)
+       AND uat.activo = TRUE
+       AND uat.expires_at > NOW()
+       AND u.activo = TRUE
+     ORDER BY uat.created_at DESC
+     LIMIT 5`,
+    [username, username]
   );
 
   for (const acceso of candidatos) {
@@ -358,11 +364,11 @@ export const validarContrasenaTemporal = async (
 
     await registrarBitacoraAccesoTemporal(connection, {
       accesoTemporalId: acceso.id,
-      usuarioObjetivoId: usuarioId,
-      actorId,
-      actorRol,
+      usuarioObjetivoId: acceso.usuario_id,
+      actorId: acceso.usuario_id,
+      actorRol: acceso.rol,
       accion: 'usada',
-      descripcion: 'Acceso temporal utilizado para iniciar sesión',
+      descripcion: `Acceso temporal utilizado para iniciar sesión por '${acceso.usuario_temporal || acceso.usuario_titular}'`,
       metadata: {
         ip_address: ipAddress,
         user_agent: userAgent,
@@ -373,6 +379,9 @@ export const validarContrasenaTemporal = async (
     return {
       valida: true,
       accesoTemporalId: acceso.id,
+      usuarioId: acceso.usuario_id,
+      usuarioTemporal: acceso.usuario_temporal,
+      nombreTitular: acceso.nombre_titular,
       expiresAt: acceso.expires_at
     };
   }
