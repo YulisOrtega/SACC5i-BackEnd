@@ -585,16 +585,14 @@ export const deleteUsuario = async (req, res) => {
 };
 
 // Borrar todos los registros operativos asociados a un usuario (Analista o Municipio)
+// Borrar todos los registros operativos asociados a un usuario (Analista o Municipio)
 export const purgeUsuarioRegistros = async (req, res) => {
   const connection = await pool.getConnection();
   try {
     const targetId = Number(req.params.id);
 
     if (!Number.isInteger(targetId) || targetId <= 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'ID de usuario invalido'
-      });
+      return res.status(400).json({ success: false, message: 'ID de usuario invalido' });
     }
 
     const [users] = await connection.query(
@@ -603,19 +601,13 @@ export const purgeUsuarioRegistros = async (req, res) => {
     );
 
     if (users.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Usuario no encontrado'
-      });
+      return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
     }
 
     const targetUser = users[0];
 
     if (targetUser.rol !== 'analista' && targetUser.rol !== 'municipio') {
-      return res.status(400).json({
-        success: false,
-        message: 'La limpieza de registros solo aplica a usuarios con rol analista o municipio'
-      });
+      return res.status(400).json({ success: false, message: 'La limpieza de registros solo aplica a analistas o municipios' });
     }
 
     await connection.beginTransaction();
@@ -625,8 +617,7 @@ export const purgeUsuarioRegistros = async (req, res) => {
 
     if (targetUser.rol === 'analista') {
       resumenAntes = await obtenerResumenRegistrosAnalista(connection, targetId);
-      totalEliminados = Object.values(resumenAntes)
-        .reduce((acc, value) => acc + Number(value || 0), 0);
+      totalEliminados = Object.values(resumenAntes).reduce((acc, value) => acc + Number(value || 0), 0);
 
       const [documentosRevision] = await connection.query(`
         SELECT DISTINCT d.id
@@ -639,93 +630,58 @@ export const purgeUsuarioRegistros = async (req, res) => {
       totalEliminados += documentosRevisionIds.length;
 
       if (totalEliminados > 0) {
+        // 👇 CORRECCIÓN CLAVE: Eliminar de finalizados y su versión legacy (ciclo_vida_alta_final)
         await safeDeleteQuery(connection, `
-          DELETE f
-          FROM finalizados f
-          LEFT JOIN tramites_alta t ON t.id = f.tramite_alta_id
-          LEFT JOIN personas_tramite_alta p ON p.id = f.persona_tramite_id
+          DELETE f FROM finalizados f
+          INNER JOIN tramites_alta t ON t.id = f.tramite_alta_id
           WHERE t.usuario_analista_c5_id = ?
-             OR p.revisado_por_usuario_id = ?
-             OR f.baja_usuario_id = ?
-             OR f.acuse_persona_uploaded_by_id = ?
-        `, [targetId, targetId, targetId, targetId]);
+        `, [targetId]);
 
         await safeDeleteQuery(connection, `
-          DELETE c
-          FROM citas_biometricas c
+          DELETE f FROM ciclo_vida_alta_final f
+          INNER JOIN tramites_alta t ON t.id = f.tramite_alta_id
+          WHERE t.usuario_analista_c5_id = ?
+        `, [targetId]);
+
+        await safeDeleteQuery(connection, `
+          DELETE c FROM citas_biometricas c
           INNER JOIN tramites_alta t ON t.id = c.tramite_alta_id
           WHERE t.usuario_analista_c5_id = ?
         `, [targetId]);
 
         await safeDeleteQuery(connection, `
-          DELETE c
-          FROM citas_biometricas c
+          DELETE c FROM citas_biometricas c
           INNER JOIN personas_tramite_alta p ON p.id = c.persona_tramite_id
           WHERE p.revisado_por_usuario_id = ?
         `, [targetId]);
 
-        await safeDeleteQuery(connection, `
-          DELETE FROM citas_bitacora
-          WHERE usuario_id = ?
-        `, [targetId]);
+        await safeDeleteQuery(connection, `DELETE FROM citas_bitacora WHERE usuario_id = ?`, [targetId]);
 
         await safeDeleteQuery(connection, `
-          DELETE h
-          FROM historial_tramites_alta h
+          DELETE h FROM historial_tramites_alta h
           INNER JOIN tramites_alta t ON t.id = h.tramite_alta_id
           WHERE t.usuario_analista_c5_id = ?
         `, [targetId]);
 
-        await safeDeleteQuery(connection, `
-          DELETE FROM historial_tramites_alta
-          WHERE usuario_id = ?
-        `, [targetId]);
+        await safeDeleteQuery(connection, `DELETE FROM historial_tramites_alta WHERE usuario_id = ?`, [targetId]);
 
         if (documentosRevisionIds.length > 0) {
           const placeholders = documentosRevisionIds.map(() => '?').join(',');
-
-          await safeDeleteQuery(connection, `
-            DELETE FROM bitacora_documentos
-            WHERE documento_id IN (${placeholders})
-          `, documentosRevisionIds);
-
-          await safeDeleteQuery(connection, `
-            DELETE FROM documentos_municipio
-            WHERE id IN (${placeholders})
-          `, documentosRevisionIds);
+          await safeDeleteQuery(connection, `DELETE FROM bitacora_documentos WHERE documento_id IN (${placeholders})`, documentosRevisionIds);
+          await safeDeleteQuery(connection, `DELETE FROM documentos_municipio WHERE id IN (${placeholders})`, documentosRevisionIds);
         }
 
         await safeDeleteQuery(connection, `
-          DELETE p
-          FROM personas_tramite_alta p
+          DELETE p FROM personas_tramite_alta p
           INNER JOIN tramites_alta t ON t.id = p.tramite_alta_id
           WHERE t.usuario_analista_c5_id = ?
         `, [targetId]);
 
-        await safeDeleteQuery(connection, `
-          DELETE FROM personas_tramite_alta
-          WHERE revisado_por_usuario_id = ?
-        `, [targetId]);
-
-        await safeDeleteQuery(connection, `
-          DELETE FROM tramites_alta
-          WHERE usuario_analista_c5_id = ?
-        `, [targetId]);
-
-        await safeDeleteQuery(connection, `
-          DELETE FROM analista_municipios_dashboard
-          WHERE usuario_analista_id = ?
-        `, [targetId]);
-
-        await safeDeleteQuery(connection, `
-          DELETE FROM listados_nominales
-          WHERE usuario_id = ?
-        `, [targetId]);
-
-        await safeDeleteQuery(connection, `
-          DELETE FROM repositorio_municipios_documentos
-          WHERE usuario_id = ?
-        `, [targetId]);
+        await safeDeleteQuery(connection, `DELETE FROM personas_tramite_alta WHERE revisado_por_usuario_id = ?`, [targetId]);
+        await safeDeleteQuery(connection, `DELETE FROM tramites_alta WHERE usuario_analista_c5_id = ?`, [targetId]);
+        await safeDeleteQuery(connection, `DELETE FROM analista_municipios_dashboard WHERE usuario_analista_id = ?`, [targetId]);
+        await safeDeleteQuery(connection, `DELETE FROM listados_nominales WHERE usuario_id = ?`, [targetId]);
+        await safeDeleteQuery(connection, `DELETE FROM repositorio_municipios_documentos WHERE usuario_id = ?`, [targetId]);
       }
     }
     else if (targetUser.rol === 'municipio') {
@@ -737,8 +693,9 @@ export const purgeUsuarioRegistros = async (req, res) => {
       const [countDocs] = await connection.query('SELECT COUNT(*) as total FROM documentos_municipio WHERE municipio_id = ?', [targetUser.municipio_id]);
       const [countNominal] = await connection.query('SELECT COUNT(*) as total FROM listados_nominales WHERE usuario_id = ?', [targetId]);
       const [countPersonalActivo] = await connection.query('SELECT COUNT(*) as total FROM repositorio_municipios_documentos WHERE usuario_id = ?', [targetId]);
+      const [countTramites] = await connection.query('SELECT COUNT(*) as total FROM tramites_alta WHERE municipio_id = ?', [targetUser.municipio_id]);
 
-      totalEliminados = countDocs[0].total + countNominal[0].total + countPersonalActivo[0].total;
+      totalEliminados = countDocs[0].total + countNominal[0].total + countPersonalActivo[0].total + countTramites[0].total;
 
       if (totalEliminados > 0) {
         await safeDeleteQuery(connection, `
@@ -746,14 +703,48 @@ export const purgeUsuarioRegistros = async (req, res) => {
           INNER JOIN documentos_municipio d ON b.documento_id = d.id
           WHERE d.municipio_id = ?
         `, [targetUser.municipio_id]);
-
         await safeDeleteQuery(connection, `DELETE FROM documentos_municipio WHERE municipio_id = ?`, [targetUser.municipio_id]);
-
         await safeDeleteQuery(connection, `DELETE FROM listados_nominales WHERE usuario_id = ?`, [targetId]);
-
         await safeDeleteQuery(connection, `DELETE FROM repositorio_municipios_documentos WHERE usuario_id = ?`, [targetId]);
+
+        // 👇 NUEVO: Si se purga un municipio, borrar también su rastro en Finalizados y Tramites_Alta
+        await safeDeleteQuery(connection, `
+          DELETE f FROM finalizados f
+          INNER JOIN tramites_alta t ON t.id = f.tramite_alta_id
+          WHERE t.municipio_id = ?
+        `, [targetUser.municipio_id]);
+
+        await safeDeleteQuery(connection, `
+          DELETE f FROM ciclo_vida_alta_final f
+          INNER JOIN tramites_alta t ON t.id = f.tramite_alta_id
+          WHERE t.municipio_id = ?
+        `, [targetUser.municipio_id]);
+
+        await safeDeleteQuery(connection, `
+          DELETE p FROM personas_tramite_alta p
+          INNER JOIN tramites_alta t ON t.id = p.tramite_alta_id
+          WHERE t.municipio_id = ?
+        `, [targetUser.municipio_id]);
+
+        await safeDeleteQuery(connection, `DELETE FROM tramites_alta WHERE municipio_id = ?`, [targetUser.municipio_id]);
       }
     }
+
+    // ==========================================
+    // LIMPIEZA EXTREMA DE HUÉRFANOS (Garantía)
+    // ==========================================
+    // Si quedó algún registro en "Consulta" (finalizados) o "Baja" que ya no tiene su trámite principal, lo exterminamos de raíz:
+    await safeDeleteQuery(connection, `
+      DELETE f FROM finalizados f
+      LEFT JOIN tramites_alta t ON f.tramite_alta_id = t.id
+      WHERE t.id IS NULL
+    `);
+
+    await safeDeleteQuery(connection, `
+      DELETE f FROM ciclo_vida_alta_final f
+      LEFT JOIN tramites_alta t ON f.tramite_alta_id = t.id
+      WHERE t.id IS NULL
+    `);
 
     if (totalEliminados === 0) {
       await connection.rollback();
@@ -793,16 +784,9 @@ export const purgeUsuarioRegistros = async (req, res) => {
     });
 
   } catch (error) {
-    try {
-      await connection.rollback();
-    } catch (rollbackError) {
-    }
+    try { await connection.rollback(); } catch (rollbackError) {}
     console.error('Error al limpiar registros del usuario:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Error al limpiar registros del usuario',
-      error: error.message
-    });
+    return res.status(500).json({ success: false, message: 'Error al limpiar registros del usuario', error: error.message });
   } finally {
     connection.release();
   }

@@ -12,17 +12,20 @@ export const listarCitas = async (req, res) => {
       estado,
       fecha_vista = 'todas',
       fecha_objetivo,
-      analista_id,
+      analista_id = null,
       pagina = 1,
       limit = 10
     } = req.query;
+
+    // 👇 REGLA DE PRIVACIDAD: Si es analista, solo ve sus propias Citas.
+    const analistaIdFinal = req.userRole === 'analista' ? req.userId : analista_id;
 
     const data = await CitaService.listarCitas({
       busqueda,
       estado,
       fecha_vista,
       fecha_objetivo,
-      analista_id,
+      analista_id: analistaIdFinal,
       pagina,
       limit
     });
@@ -57,8 +60,12 @@ export const reenviarNotificacionCita = async (req, res) => {
  */
 export const getEstadisticasCitas = async (req, res) => {
   try {
-    const { analista_id } = req.query;
-    const data = await CitaService.getEstadisticasCitas({ analista_id });
+    const { analista_id = null } = req.query;
+
+    // 👇 REGLA DE PRIVACIDAD: Si es analista, sus estadísticas solo cuentan lo suyo.
+    const analistaIdFinal = req.userRole === 'analista' ? req.userId : analista_id;
+
+    const data = await CitaService.getEstadisticasCitas({ analista_id: analistaIdFinal });
     res.json({ success: true, data });
   } catch (err) {
     console.error('Error en getEstadisticasCitas:', err);
@@ -98,7 +105,6 @@ export const obtenerBitacoraCita = async (req, res) => {
 export const reprogramarCita = async (req, res) => {
   try {
     const { id } = req.params;
-    // AGREGAMOS 'nuevo_correo' a la desestructuración del req.body:
     const { fecha_cita, justificacion, lugar, notas, nuevo_correo } = req.body; 
     
     const data = await CitaService.reprogramarCita(Number(id), req.userId, {
@@ -160,8 +166,17 @@ export const finalizarFlujoCita = async (req, res) => {
 
 export const listarFinalizados = async (req, res) => {
   try {
-    const { busqueda = '', analista_id, pagina = 1, limit = 10 } = req.query;
-    const data = await CitaService.listarFinalizados({ busqueda, analista_id, pagina, limit });
+    const { busqueda = '', analista_id = null, pagina = 1, limit = 10 } = req.query;
+
+    // 👇 REGLA DE PRIVACIDAD: Si es analista, solo ve sus expedientes finalizados.
+    const analistaIdFinal = req.userRole === 'analista' ? req.userId : analista_id;
+
+    const data = await CitaService.listarFinalizados({ 
+      busqueda, 
+      analista_id: analistaIdFinal, 
+      pagina, 
+      limit 
+    });
     res.json({ success: true, data });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -273,4 +288,3 @@ export const verAcusePersonaFinalizado = async (req, res) => {
     res.status(code).json({ success: false, message: err.message });
   }
 };
-

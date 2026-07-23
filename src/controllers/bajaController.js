@@ -13,11 +13,15 @@ export const listarDisponiblesBaja = async (req, res) => {
   try {
     const { busqueda = '', pagina = 1, limit = 10, analista_id = null } = req.query;
 
+    // 👇 CORRECCIÓN: Si el usuario es un analista, forzamos que solo vea sus propios registros.
+    // Si es otro rol (ej. admin o dirección), respetamos el analista_id de la consulta (o null para ver todos).
+    const analistaIdFinal = req.userRole === 'analista' ? req.userId : analista_id;
+
     const data = await BajaService.listarDisponiblesBaja({
       busqueda,
       pagina,
       limit,
-      analistaId: analista_id,
+      analistaId: analistaIdFinal,
       municipioId: req.query.municipio_id || req.municipio_id || null,
       municipioNombre: req.query.municipio_nombre || null
     });
@@ -32,11 +36,14 @@ export const listarBajasRegistradas = async (req, res) => {
   try {
     const { busqueda = '', pagina = 1, limit = 10, analista_id = null } = req.query;
 
+    // 👇 CORRECCIÓN: Aplicamos la misma regla de privacidad para la pestaña de "Elementos dados de baja".
+    const analistaIdFinal = req.userRole === 'analista' ? req.userId : analista_id;
+
     const data = await BajaService.listarBajasRegistradas({
       busqueda,
       pagina,
       limit,
-      analistaId: analista_id,
+      analistaId: analistaIdFinal,
       municipioId: req.query.municipio_id || req.municipio_id || null,
       municipioNombre: req.query.municipio_nombre || null
     });
