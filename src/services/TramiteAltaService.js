@@ -4,6 +4,7 @@ import HistorialModel from '../models/HistorialModel.js';
 import DashboardMunicipioModel from '../models/DashboardMunicipioModel.js';
 import MunicipioModel from '../models/MunicipioModel.js';
 import BaseModel from '../models/BaseModel.js';
+import NotificacionService from './NotificacionService.js';
 
 const normalizarNumeroOficio = (value) => {
   if (value === undefined) return undefined;
@@ -308,8 +309,35 @@ class TramiteAltaService {
         await connection.query(`INSERT INTO historial_tramites_alta (tramite_alta_id, usuario_id, fase_anterior, fase_nueva, comentario) VALUES (?, ?, 'enviado_c3', ?, ?)`, [persona.tramite_alta_id, usuarioId, faseNueva, `Dictamen C3 completado - ${stats[0].aprobadas} aprobada(s), ${stats[0].rechazadas} rechazada(s)`]);
       }
 
-      const [personaActualizada] = await connection.query(`SELECT p.*, t.numero_solicitud, t.municipio_id, t.usuario_analista_c5_id, t.fase_actual as tramite_fase, m.nombre as municipio_nombre, pu.nombre as puesto_nombre, pu.es_competencia_municipal FROM personas_tramite_alta p INNER JOIN tramites_alta t ON p.tramite_alta_id = t.id LEFT JOIN municipios m ON t.municipio_id = m.id LEFT JOIN puestos pu ON p.puesto_id = pu.id WHERE p.id = ?`, [personaId]);
-      return personaActualizada[0];
+const [personaActualizada] = await connection.query(
+  `
+  SELECT 
+    p.*,
+    t.numero_solicitud,
+    t.municipio_id,
+    t.usuario_analista_c5_id,
+    t.fase_actual as tramite_fase,
+    m.nombre as municipio_nombre,
+    pu.nombre as puesto_nombre,
+    pu.es_competencia_municipal
+  FROM personas_tramite_alta p
+  INNER JOIN tramites_alta t ON p.tramite_alta_id = t.id
+  LEFT JOIN municipios m ON t.municipio_id = m.id
+  LEFT JOIN puestos pu ON p.puesto_id = pu.id
+  WHERE p.id = ?
+  `,
+  [personaId]
+);
+
+const personaDictaminada = personaActualizada[0];
+
+await NotificacionService.crearRespuestaC3({
+  connection,
+  persona: personaDictaminada,
+  dictamen
+});
+
+return personaDictaminada;
     });
   }
 

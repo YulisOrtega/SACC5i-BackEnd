@@ -10,6 +10,7 @@ import { errorHandler, notFoundHandler } from './middlewares/errorMiddleware.js'
 import { apiRateLimiter } from './middlewares/rateLimitMiddleware.js';
 import { requestContextMiddleware } from './middlewares/requestContextMiddleware.js';
 import repositorioMunicipiosRoutes from "./routes/repositorioMunicipiosRoutes.js";
+import notificacionesRoutes from './routes/notificacionesRoutes.js';
 
 // Cargar variables de entorno
 dotenv.config();
@@ -62,6 +63,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // Rutas del repositorio de municipios
 app.use("/api/repositorio-municipios", repositorioMunicipiosRoutes);
+app.use('/api/notificaciones', notificacionesRoutes);
 
 // Swagger UI - Documentación interactiva
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
