@@ -82,8 +82,8 @@ export const obtenerDashboardMunicipios = async (req, res) => {
       success: true,
       data: municipios,
       total: municipios.length,
-      message: municipios.length === 0 
-        ? 'Dashboard vacío. Agrega municipios con el botón +' 
+      message: municipios.length === 0
+        ? 'Dashboard vacío. Agrega municipios con el botón +'
         : `Dashboard cargado: ${municipios.length} municipio(s)`
     });
 
@@ -208,7 +208,7 @@ export const obtenerMisSolicitudes = async (req, res) => {
       fase_actual: req.query.fase,
       municipio_id: req.query.municipio_id,
       estatus_id: req.query.estatus_id,
-      usuario_rol: req.userRole 
+      usuario_rol: req.userRole
     };
 
     const solicitudes = await TramiteAltaService.obtenerSolicitudesAnalista(analistaId, filtros);
@@ -247,8 +247,8 @@ export const obtenerSolicitudPorId = async (req, res) => {
 
   } catch (error) {
     console.error('Error al obtener solicitud:', error);
-    const statusCode = error.message.includes('No tienes permiso') ? 403 : 
-                       error.message.includes('no encontrado') ? 404 : 500;
+    const statusCode = error.message.includes('No tienes permiso') ? 403 :
+      error.message.includes('no encontrado') ? 404 : 500;
     res.status(statusCode).json({
       success: false,
       message: error.message || 'Error al obtener solicitud',
@@ -275,8 +275,8 @@ export const eliminarBorradorNoEnviado = async (req, res) => {
     console.error('Error al eliminar borrador no enviado:', error);
     const statusCode = error.message.includes('No tienes permiso') ? 403
       : error.message.includes('no encontrado') ? 404
-      : error.message.includes('Solo se pueden eliminar borradores') ? 400
-      : 500;
+        : error.message.includes('Solo se pueden eliminar borradores') ? 400
+          : 500;
 
     res.status(statusCode).json({
       success: false,
@@ -442,9 +442,9 @@ export const debugTramiteEstado = async (req, res) => {
     const debugInfo = await TramiteAltaModel.getDebugInfo(tramite_id);
 
     if (!debugInfo) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Trámite no encontrado' 
+      return res.status(404).json({
+        success: false,
+        message: 'Trámite no encontrado'
       });
     }
 
@@ -455,8 +455,8 @@ export const debugTramiteEstado = async (req, res) => {
 
   } catch (error) {
     console.error('Error debug tramite:', error);
-    res.status(500).json({ 
-      success: false, 
+    res.status(500).json({
+      success: false,
       message: 'Error en debug',
       error: error.message
     });
@@ -509,8 +509,12 @@ export const emitirDictamenPersonaC3 = async (req, res) => {
  */
 export const obtenerHistorialC3 = async (req, res) => {
   try {
+    const usuarioId = req.user?.id || req.userId;
+    const usuarioRol = req.user?.rol || req.userRole || req.usuario?.rol;
+
     const filtros = {
-      validador_id: req.userId,
+      usuario_id: usuarioId,
+      usuario_rol: usuarioRol,
       fecha_inicio: req.query.fecha_inicio,
       fecha_fin: req.query.fecha_fin,
       busqueda: req.query.busqueda,
@@ -590,7 +594,7 @@ export const agregarPersona = async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: persona.rechazado 
+      message: persona.rechazado
         ? 'Persona agregada y rechazada automáticamente (puesto no municipal)'
         : 'Persona agregada exitosamente',
       data: persona
@@ -652,6 +656,30 @@ export const editarPersona = async (req, res) => {
     res.status(statusCode).json({
       success: false,
       message: error.message || 'Error al editar persona',
+      error: error.message
+    });
+  }
+};
+
+export const ocultarHistorialC3PorMes = async (req, res) => {
+  try {
+    const resultado = await TramiteAltaService.ocultarHistorialC3PorMes({
+      mes: req.body.mes,
+      anio: req.body.anio,
+      usuarioId: req.userId,
+      usuarioRol: req.userRole
+    });
+
+    res.json({
+      success: true,
+      data: resultado,
+      message: `${resultado.total_ocultados} registro(s) ocultado(s) del historial C3`
+    });
+  } catch (error) {
+    console.error('Error al ocultar historial C3 por mes:', error);
+    res.status(error.message.includes('permisos') ? 403 : 400).json({
+      success: false,
+      message: error.message || 'Error al borrar historial C3 por mes',
       error: error.message
     });
   }
@@ -906,7 +934,7 @@ export const emitirDecisionFinalC5 = async (req, res) => {
 
     res.json({
       success: true,
-      message: resultado.todas_decisiones_tomadas 
+      message: resultado.todas_decisiones_tomadas
         ? 'Todas las decisiones registradas. Trámite aprobado con decisión final de C5.'
         : 'Decisiones registradas correctamente',
       data: resultado
@@ -914,8 +942,8 @@ export const emitirDecisionFinalC5 = async (req, res) => {
 
   } catch (error) {
     console.error('Error al emitir decisión final C5:', error);
-    const statusCode = error.message.includes('permisos') ? 403 : 
-                       error.message.includes('no encontrado') ? 404 : 400;
+    const statusCode = error.message.includes('permisos') ? 403 :
+      error.message.includes('no encontrado') ? 404 : 400;
     res.status(statusCode).json({
       success: false,
       message: error.message || 'Error al emitir decisión final',
