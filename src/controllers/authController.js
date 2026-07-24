@@ -221,19 +221,35 @@ export const getProfile = async (req, res) => {
     }
 
     const userData = users[0];
+    let isTemp = Boolean(req.isTemporarySession);
+    let tempExpires = req.tempSessionExpiresAt || null;
 
-    // Si es sesión temporal, sobreescribimos el nombre a mostrar con la variable del token
-    if (req.isTemporarySession && req.user?.temp_user) {
-      userData.nombre_completo = `${req.user.temp_user} (Cubre a: ${userData.nombre_completo})`;
-      userData.usuario = req.user.temp_user;
+    // 👇 SOLUCIÓN: Extraemos el nombre temporal directamente del Token 
+    // para evitar que el middleware pierda la variable.
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.substring(7);
+      try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        if (decoded.is_temp_session) {
+          isTemp = true;
+          tempExpires = decoded.temp_expires_at || null;
+          if (decoded.temp_user) {
+            userData.nombre_completo = `${decoded.temp_user} (Cubre a: ${userData.nombre_completo})`;
+            userData.usuario = decoded.temp_user;
+          }
+        }
+      } catch (e) {
+        // Ignorar, el middleware ya validó que el token es legítimo
+      }
     }
 
     res.json({
       success: true,
       data: {
         ...userData,
-        sesion_temporal: Boolean(req.isTemporarySession),
-        sesion_temporal_expira_en: req.tempSessionExpiresAt || null
+        sesion_temporal: isTemp,
+        sesion_temporal_expira_en: tempExpires
       },
       session_idle_timeout_minutes: req.sessionIdleTimeoutMinutes || SESSION_IDLE_TIMEOUT_MINUTES,
       warning: !userData.password_changed ? 'Por seguridad, se recomienda cambiar tu contraseña temporal' : null

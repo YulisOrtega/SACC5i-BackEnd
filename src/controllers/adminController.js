@@ -155,6 +155,7 @@ const obtenerResumenRegistrosAnalista = async (connection, usuarioId) => {
 // ============================================
 
 // Listar todos los usuarios
+// Listar todos los usuarios
 export const getUsuarios = async (req, res) => {
   const connection = await pool.getConnection();
   
@@ -182,14 +183,22 @@ export const getUsuarios = async (req, res) => {
         u.id ASC
     `;
     
+    // 👇 CAMBIO AQUÍ: Agregamos "temp_acc.usuario_temporal as delegado_a" y el LEFT JOIN
     let query = `
       SELECT u.id, u.nombre_completo, u.usuario, u.email, u.extension, u.region_id, u.rol, 
              u.activo, u.password_changed, u.created_at, r.nombre as region_nombre,
              COALESCE(sesiones.sesiones_activas, 0) as sesiones_activas,
              CASE WHEN COALESCE(sesiones.sesiones_activas, 0) > 0 THEN TRUE ELSE FALSE END as en_linea,
-             sesiones.ultima_actividad_sesion_at
+             sesiones.ultima_actividad_sesion_at,
+             temp_acc.usuario_temporal as delegado_a
       FROM usuarios u
       LEFT JOIN regiones r ON u.region_id = r.id
+      LEFT JOIN (
+        SELECT usuario_id, MAX(usuario_temporal) as usuario_temporal 
+        FROM usuarios_accesos_temporales 
+        WHERE activo = TRUE AND expires_at > NOW() 
+        GROUP BY usuario_id
+      ) temp_acc ON temp_acc.usuario_id = u.id
       LEFT JOIN (
         SELECT
           usuario_id,
@@ -237,12 +246,14 @@ export const getUsuarios = async (req, res) => {
         throw error;
       }
 
+      // 👇 CAMBIO AQUÍ: Agregamos "NULL as delegado_a" para que no falle si la tabla no existe aún
       let legacyQuery = `
         SELECT u.id, u.nombre_completo, u.usuario, u.email, u.extension, u.region_id, u.rol,
                u.activo, u.password_changed, u.created_at, r.nombre as region_nombre,
                0 as sesiones_activas,
                FALSE as en_linea,
-               NULL as ultima_actividad_sesion_at
+               NULL as ultima_actividad_sesion_at,
+               NULL as delegado_a
         FROM usuarios u
         LEFT JOIN regiones r ON u.region_id = r.id
         WHERE 1=1
