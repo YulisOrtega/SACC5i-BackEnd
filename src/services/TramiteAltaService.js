@@ -30,7 +30,7 @@ const normalizarNumeroOficioC3 = normalizarNumeroOficioOpcional;
 const normalizarNumeroOficioC5 = normalizarNumeroOficio;
 
 class TramiteAltaService {
-  
+
   async crearSolicitud(usuarioId, regionId, datos) {
     if (!datos.es_tramite_dependencia) {
       const municipioValido = await MunicipioModel.belongsToRegion(
@@ -66,7 +66,7 @@ class TramiteAltaService {
         fecha_solicitud: datos.fecha_solicitud || new Date().toISOString().split('T')[0],
         proceso_movimiento: 'ALTA',
         fase_actual: 'datos_solicitud',
-        estatus_id: 1, 
+        estatus_id: 1,
         es_tramite_dependencia: datos.es_tramite_dependencia || false
       };
 
@@ -116,8 +116,8 @@ class TramiteAltaService {
     }
 
     if (usuarioRol === 'analista' &&
-        tramite.usuario_analista_c5_id !== usuarioId &&
-        !tramite.es_tramite_dependencia) {
+      tramite.usuario_analista_c5_id !== usuarioId &&
+      !tramite.es_tramite_dependencia) {
       throw new Error('No tienes permiso para ver este trámite');
     }
 
@@ -260,10 +260,10 @@ class TramiteAltaService {
 
       await connection.query(`UPDATE tramites_alta SET fase_actual = 'enviado_c3', estatus_id = 2, updated_at = NOW() WHERE id = ?`, [tramiteId]);
 
-      const comentario = esDependencia 
+      const comentario = esDependencia
         ? `Enviado a C3 por dependencia - ${personasParaEnviar.length} persona(s) enviada(s) para dictamen C3`
         : `Enviado a C3 - ${personasParaEnviar.length} persona(s) validada(s) enviada(s) para dictamen C3`;
-      
+
       await connection.query(
         `INSERT INTO historial_tramites_alta (tramite_alta_id, usuario_id, fase_anterior, fase_nueva, comentario) VALUES (?, ?, 'validacion_personal', 'enviado_c3', ?)`,
         [tramiteId, usuarioId, comentario]
@@ -298,7 +298,7 @@ class TramiteAltaService {
       await connection.query(`UPDATE tramites_alta SET usuario_validador_c3_id = COALESCE(usuario_validador_c3_id, ?), updated_at = NOW() WHERE id = ?`, [usuarioId, persona.tramite_alta_id]);
 
       const [pendientes] = await connection.query(`SELECT COUNT(*) as count FROM personas_tramite_alta WHERE tramite_alta_id = ? AND validado = TRUE AND rechazado = FALSE AND observaciones_c3 IS NULL`, [persona.tramite_alta_id]);
-      
+
       if (pendientes[0].count === 0) {
         const [stats] = await connection.query(`SELECT COUNT(CASE WHEN rechazado = FALSE AND observaciones_c3 IS NOT NULL THEN 1 END) as aprobadas, COUNT(CASE WHEN rechazado = TRUE THEN 1 END) as rechazadas FROM personas_tramite_alta WHERE tramite_alta_id = ? AND validado = TRUE`, [persona.tramite_alta_id]);
         const hayAprobadas = stats[0].aprobadas > 0;
@@ -309,8 +309,8 @@ class TramiteAltaService {
         await connection.query(`INSERT INTO historial_tramites_alta (tramite_alta_id, usuario_id, fase_anterior, fase_nueva, comentario) VALUES (?, ?, 'enviado_c3', ?, ?)`, [persona.tramite_alta_id, usuarioId, faseNueva, `Dictamen C3 completado - ${stats[0].aprobadas} aprobada(s), ${stats[0].rechazadas} rechazada(s)`]);
       }
 
-const [personaActualizada] = await connection.query(
-  `
+      const [personaActualizada] = await connection.query(
+        `
   SELECT 
     p.*,
     t.numero_solicitud,
@@ -326,18 +326,18 @@ const [personaActualizada] = await connection.query(
   LEFT JOIN puestos pu ON p.puesto_id = pu.id
   WHERE p.id = ?
   `,
-  [personaId]
-);
+        [personaId]
+      );
 
-const personaDictaminada = personaActualizada[0];
+      const personaDictaminada = personaActualizada[0];
 
-await NotificacionService.crearRespuestaC3({
-  connection,
-  persona: personaDictaminada,
-  dictamen
-});
+      await NotificacionService.crearRespuestaC3({
+        connection,
+        persona: personaDictaminada,
+        dictamen
+      });
 
-return personaDictaminada;
+      return personaDictaminada;
     });
   }
 
@@ -358,22 +358,22 @@ return personaDictaminada;
     ];
     const params = [];
 
-    if (filtros.validador_id) { 
-      where.push('(t.usuario_validador_c3_id = ? OR t.usuario_validador_c3_id IS NULL)'); 
-      params.push(filtros.validador_id); 
+    if (filtros.usuario_rol === 'validador_c3' && filtros.usuario_id) {
+      where.push('t.usuario_validador_c3_id = ?');
+      params.push(filtros.usuario_id);
     }
-    if (filtros.fecha_inicio && filtros.fecha_fin) { 
-      where.push('t.updated_at BETWEEN ? AND ?'); 
-      params.push(filtros.fecha_inicio, filtros.fecha_fin); 
+    if (filtros.fecha_inicio && filtros.fecha_fin) {
+      where.push('t.updated_at BETWEEN ? AND ?');
+      params.push(filtros.fecha_inicio, filtros.fecha_fin);
     }
-    if (filtros.busqueda) { 
-      where.push('(t.numero_solicitud LIKE ? OR m.nombre LIKE ? OR dep.nombre LIKE ? OR ua.nombre_completo LIKE ?)'); 
-      const searchTerm = `%${filtros.busqueda}%`; 
-      params.push(searchTerm, searchTerm, searchTerm, searchTerm); 
+    if (filtros.busqueda) {
+      where.push('(t.numero_solicitud LIKE ? OR m.nombre LIKE ? OR dep.nombre LIKE ? OR ua.nombre_completo LIKE ?)');
+      const searchTerm = `%${filtros.busqueda}%`;
+      params.push(searchTerm, searchTerm, searchTerm, searchTerm);
     }
-    if (filtros.dictamen) { 
-      where.push('t.fase_actual = ?'); 
-      params.push(filtros.dictamen); 
+    if (filtros.dictamen) {
+      where.push('t.fase_actual = ?');
+      params.push(filtros.dictamen);
     }
 
     const sql = `
@@ -387,17 +387,22 @@ return personaDictaminada;
       LEFT JOIN usuarios uv ON t.usuario_validador_c3_id = uv.id
       WHERE ${where.join(' AND ')} ORDER BY t.updated_at DESC
     `;
-    
+
     const tramites = await TramiteAltaModel.query(sql, params);
-    
+
     for (const tramite of tramites) {
       const stats = await PersonaTramiteModel.getEstadisticasTramite(tramite.id);
       tramite.personas_stats = stats;
       const personas = await PersonaTramiteModel.findByTramite(tramite.id);
-      
+
       tramite.personas = personas.filter((persona) => {
+        if (Number(persona.historial_c3_oculto || 0) === 1) {
+          return false;
+        }
+
         const observacionesC3 = typeof persona.observaciones_c3 === 'string' ? persona.observaciones_c3.trim() : '';
         const motivoRechazo = typeof persona.motivo_rechazo === 'string' ? persona.motivo_rechazo.trim() : '';
+
         return observacionesC3.length > 0 || motivoRechazo.startsWith('Dictamen C3:');
       }).map(persona => {
         const p = { ...persona };
@@ -409,7 +414,55 @@ return personaDictaminada;
         return p;
       });
     }
-    return tramites;
+    return tramites.filter((tramite) => Array.isArray(tramite.personas) && tramite.personas.length > 0);
+  }
+
+  async ocultarHistorialC3PorMes({ mes, anio, usuarioId, usuarioRol }) {
+    if (!['admin', 'super_admin', 'validador_c3'].includes(usuarioRol)) {
+      throw new Error('No tienes permisos para borrar historial C3');
+    }
+
+    const mesNumero = Number(mes);
+    const anioNumero = Number(anio);
+
+    if (!Number.isInteger(mesNumero) || mesNumero < 1 || mesNumero > 12) {
+      throw new Error('Mes inválido');
+    }
+
+    if (!Number.isInteger(anioNumero) || anioNumero < 2000 || anioNumero > 2100) {
+      throw new Error('Año inválido');
+    }
+
+    const mesFormateado = String(mesNumero).padStart(2, '0');
+    const fechaInicio = `${anioNumero}-${mesFormateado}-01`;
+
+    const sql = `
+    UPDATE personas_tramite_alta p
+    INNER JOIN tramites_alta t ON p.tramite_alta_id = t.id
+    SET 
+      p.historial_c3_oculto = 1,
+      p.historial_c3_oculto_at = NOW(),
+      p.historial_c3_oculto_por = ?
+    WHERE p.historial_c3_oculto = 0
+      AND (
+        p.observaciones_c3 IS NOT NULL
+        OR p.motivo_rechazo LIKE 'Dictamen C3:%'
+      )
+      AND p.updated_at >= ?
+      AND p.updated_at < DATE_ADD(?, INTERVAL 1 MONTH)
+  `;
+
+    const result = await TramiteAltaModel.query(sql, [
+      usuarioId,
+      fechaInicio,
+      fechaInicio
+    ]);
+
+    return {
+      total_ocultados: result?.affectedRows || result?.[0]?.affectedRows || 0,
+      mes: mesNumero,
+      anio: anioNumero
+    };
   }
 
   // ============================================
@@ -513,7 +566,7 @@ return personaDictaminada;
         const idsStr = tramiteIds.join(',');
         let finalizadosRows = [];
         let citasRows = [];
-        
+
         try { citasRows = await TramiteAltaModel.query(`SELECT * FROM citas_biometricas WHERE tramite_alta_id IN (${idsStr})`); } catch (e) { }
         try { finalizadosRows = await TramiteAltaModel.query(`SELECT * FROM finalizados WHERE tramite_alta_id IN (${idsStr})`); } catch (e) { }
 
@@ -534,7 +587,7 @@ return personaDictaminada;
               p.accion_disponible = 'cita_programada';
               return;
             }
-            
+
             p.estatus_descriptivo = 'Validación CUIP Completada';
             p.accion_disponible = 'revision_completada';
           }
@@ -776,7 +829,7 @@ return personaDictaminada;
     return { success: true };
   }
   async obtenerMunicipiosDisponibles(analistaId, regionId) { return await DashboardMunicipioModel.getMunicipiosDisponibles(analistaId, regionId); }
-  
+
   async obtenerEstadisticasAnalista(analistaId) {
     const [estadisticas, dashboard] = await Promise.all([TramiteAltaModel.getEstadisticasAnalista(analistaId), DashboardMunicipioModel.findByAnalista(analistaId)]);
     return { tramites: estadisticas, municipios_dashboard: dashboard.length, municipios_con_tramites: dashboard.filter(m => m.tramites_activos > 0).length };

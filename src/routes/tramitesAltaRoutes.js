@@ -18,6 +18,7 @@ import {
   obtenerPersonasPendientesC3,
   obtenerSolicitudParaC3,
   obtenerHistorialC3,
+  ocultarHistorialC3PorMes,
   emitirDictamenPersonaC3,
   obtenerTodasLasPersonasC5,
   obtenerPersonasRechazadas,
@@ -715,9 +716,25 @@ router.get('/todas-personas-c5',
  *       403:
  *         description: Solo validadores C3
  */
-router.get('/historial-c3', 
-  requireRole('validador_c3'), 
+router.get(
+  '/historial-c3',
+  requireRole('validador_c3', 'admin', 'super_admin'),
   obtenerHistorialC3
+);
+
+router.patch(
+  '/historial-c3/ocultar-mes',
+  requireRole('admin', 'super_admin', 'validador_c3'),
+  [
+    body('mes')
+      .isInt({ min: 1, max: 12 })
+      .withMessage('Mes inválido'),
+    body('anio')
+      .isInt({ min: 2000, max: 2100 })
+      .withMessage('Año inválido')
+  ],
+  validate,
+  ocultarHistorialC3PorMes
 );
 
 /**
