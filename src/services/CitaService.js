@@ -721,8 +721,13 @@ class CitaService {
     limit = 10
   } = {}) {
     const connection = await pool.getConnection();
+
     try {
-      await CitaLifecycleService.actualizarInasistencias(connection);
+      // IMPORTANTE:
+      // Ya no se actualizan automáticamente las citas vencidas como inasistencias.
+      // Si la cita pasó de fecha y nadie confirmó asistencia/no asistencia,
+      // se queda como programada/reprogramada y se muestra en "Vencidas".
+
       const tablaFinalizados = await this._resolverTablaFinalizados(connection);
       const joinFinalizados = tablaFinalizados
         ? `LEFT JOIN ${tablaFinalizados} fz ON fz.cita_id = cb.id`
@@ -733,19 +738,36 @@ class CitaService {
       const params = [];
 
       if (tablaFinalizados) {
-        // Cualquier cita ya promovida a finalizados deja de mostrarse en la bandeja de citas.
         conditions.push('fz.id IS NULL');
       }
 
-      if (estado) {
-        conditions.push('cb.estado = ?');
-        params.push(estado);
+      const estadoFiltro = String(estado || '').trim();
+
+      if (estadoFiltro) {
+        if (estadoFiltro === 'vencidas' || estadoFiltro === 'vencida') {
+          conditions.push("DATE(cb.fecha_cita) < CURDATE() AND cb.estado IN ('programada', 'reprogramada')");
+        } else if (estadoFiltro === 'rechazadas' || estadoFiltro === 'rechazada') {
+          conditions.push("cb.estado = 'cancelada'");
+        } else if (estadoFiltro === 'pendientes') {
+          conditions.push("cb.estado = 'programada'");
+        } else if (estadoFiltro === 'asistencias') {
+          conditions.push("cb.estado = 'completada'");
+        } else if (estadoFiltro === 'reagendadas') {
+          conditions.push("cb.estado = 'reprogramada'");
+        } else {
+          conditions.push('cb.estado = ?');
+          params.push(estadoFiltro);
+        }
       } else {
-        // En Citas no se muestran canceladas; se gestionan en rechazados.
+        // En Citas no se muestran canceladas por defecto; esas van a Rechazadas.
         conditions.push("cb.estado <> 'cancelada'");
       }
+
       if (busqueda) {
-        conditions.push(`(CONCAT(pta.nombre, ' ', pta.apellido_paterno) LIKE ? OR cb.folio_cita LIKE ?)`);
+        conditions.push(`(
+        CONCAT(pta.nombre, ' ', pta.apellido_paterno, ' ', IFNULL(pta.apellido_materno, '')) LIKE ?
+        OR cb.folio_cita LIKE ?
+      )`);
         params.push(`%${busqueda}%`, `%${busqueda}%`);
       }
 
@@ -774,37 +796,55 @@ class CitaService {
 
       const [[{ total }]] = await connection.query(
         `SELECT COUNT(*) AS total
-         FROM citas_biometricas cb
-         JOIN personas_tramite_alta pta ON cb.persona_tramite_id = pta.id
-         JOIN tramites_alta ta ON cb.tramite_alta_id = ta.id
-         ${joinFinalizados}
-         ${where}`,
+       FROM citas_biometricas cb
+       JOIN personas_tramite_alta pta ON cb.persona_tramite_id = pta.id
+       JOIN tramites_alta ta ON cb.tramite_alta_id = ta.id
+       ${joinFinalizados}
+       ${where}`,
         [...params]
       );
 
       const [citas] = await connection.query(
         `SELECT
-           cb.id, cb.folio_cita, cb.fecha_cita, cb.lugar, cb.notas, cb.estado,
-           cb.correo_destinatario, cb.notificacion_enviada, cb.created_at,
-           DATE_FORMAT(cb.fecha_cita, '%Y-%m-%d') AS fecha_cita_local,
-           DATE_FORMAT(cb.fecha_cita, '%H:%i') AS hora_cita_local,
-            CASE WHEN DATE(cb.fecha_cita) = CURDATE() THEN 1 ELSE 0 END AS es_dia_cita,
-           pta.id AS persona_id,
-           CONCAT(pta.nombre, ' ', pta.apellido_paterno, ' ', IFNULL(pta.apellido_materno, '')) AS nombre_completo,
-           pta.numero_oficio_c3,
-           m.nombre AS municipio_nombre,
-           pu.nombre AS puesto_nombre,
-           u.nombre_completo AS analista_nombre
-         FROM citas_biometricas cb
-         JOIN personas_tramite_alta pta ON cb.persona_tramite_id = pta.id
-         JOIN tramites_alta ta ON cb.tramite_alta_id = ta.id
-         ${joinFinalizados}
-         LEFT JOIN municipios m ON ta.municipio_id = m.id
-         LEFT JOIN puestos pu ON pta.puesto_id = pu.id
-         LEFT JOIN usuarios u ON ta.usuario_analista_c5_id = u.id
-         ${where}
-         ORDER BY cb.created_at DESC
-         LIMIT ? OFFSET ?`,
+         cb.id,
+         cb.folio_cita,
+         cb.fecha_cita,
+         cb.lugar,
+         cb.notas,
+         cb.estado,
+         CASE
+           WHEN DATE(cb.fecha_cita) < CURDATE()
+             AND cb.estado IN ('programada', 'reprogramada')
+           THEN 'vencida'
+           ELSE cb.estado
+         END AS estado_vista,
+         cb.correo_destinatario,
+         cb.notificacion_enviada,
+         cb.created_at,
+         DATE_FORMAT(cb.fecha_cita, '%Y-%m-%d') AS fecha_cita_local,
+         DATE_FORMAT(cb.fecha_cita, '%H:%i') AS hora_cita_local,
+         CASE
+           WHEN DATE(cb.fecha_cita) <= CURDATE()
+             AND cb.estado IN ('programada', 'reprogramada', 'completada')
+           THEN 1
+           ELSE 0
+         END AS es_dia_cita,
+         pta.id AS persona_id,
+         CONCAT(pta.nombre, ' ', pta.apellido_paterno, ' ', IFNULL(pta.apellido_materno, '')) AS nombre_completo,
+         pta.numero_oficio_c3,
+         m.nombre AS municipio_nombre,
+         pu.nombre AS puesto_nombre,
+         u.nombre_completo AS analista_nombre
+       FROM citas_biometricas cb
+       JOIN personas_tramite_alta pta ON cb.persona_tramite_id = pta.id
+       JOIN tramites_alta ta ON cb.tramite_alta_id = ta.id
+       ${joinFinalizados}
+       LEFT JOIN municipios m ON ta.municipio_id = m.id
+       LEFT JOIN puestos pu ON pta.puesto_id = pu.id
+       LEFT JOIN usuarios u ON ta.usuario_analista_c5_id = u.id
+       ${where}
+       ORDER BY cb.created_at DESC
+       LIMIT ? OFFSET ?`,
         [...params, Number(limit), Number(offset)]
       );
 
@@ -828,7 +868,6 @@ class CitaService {
   async getEstadisticasCitas({ analista_id = '' } = {}) {
     const connection = await pool.getConnection();
     try {
-      await CitaLifecycleService.actualizarInasistencias(connection);
 
       const analistaId = Number(analista_id);
       const hasAnalistaFilter = Number.isFinite(analistaId) && analistaId > 0;
@@ -986,7 +1025,7 @@ class CitaService {
       try {
         pdfBuffer = await this._generarAcusePDF(citaActualizada, personaActualizada);
       } catch (pdfErr) {
-        console.error('❌ Error al generar PDF en reprogramación:', pdfErr);
+        console.error('Error al generar PDF en reprogramación:', pdfErr);
         throw new Error(`Fallo al generar el acuse PDF: ${pdfErr.message}`);
       }
 
@@ -1009,7 +1048,7 @@ class CitaService {
             [citaId]
           );
         } catch (mailErr) {
-          console.error('❌ Error enviando correo en reprogramación:', mailErr);
+          console.error('Error enviando correo en reprogramación:', mailErr);
           throw new Error(`Cita reprogramada en base de datos, pero falló el correo: ${mailErr.message}`);
         }
       }
