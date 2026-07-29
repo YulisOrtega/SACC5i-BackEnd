@@ -971,7 +971,6 @@ class CitaService {
   }
 
   //reprogramar cita
-  //reprogramar cita
   async reprogramarCita(citaId, usuarioId, { fecha_cita, justificacion, lugar, notas, nuevo_correo }) {
     const connection = await pool.getConnection();
     try {
@@ -987,11 +986,11 @@ class CitaService {
         ? nuevo_correo.trim()
         : cita.correo_destinatario;
 
-      // 2. CORREGIDO: Se quitó el correoDestino repetido en el array de parámetros
+      // 2. CORREGIDO: Se actualiza a 'reprogramada' para que funcione el filtro
       await connection.query(
         `UPDATE citas_biometricas
          SET fecha_cita = ?,
-             estado = 'programada',
+             estado = 'reprogramada', 
              lugar = COALESCE(?, lugar),
              notas = COALESCE(?, notas),
              correo_destinatario = ?,
@@ -1570,6 +1569,14 @@ class CitaService {
       const requiereJustificacion = suimResultadoNormalizado === 'antecedentes_menores';
       const resultadoValido = ['sin_antecedentes', 'antecedentes_menores', 'antecedentes_graves'].includes(suimResultadoNormalizado);
 
+      // 👇 NUEVO: Detectar si el seguimiento es tardío (Cita Vencida)
+      const tz = 'America/Mexico_City';
+      const fechaCitaDate = new Date(cita.fecha_cita);
+      const hoyDate = new Date();
+      // Normalizamos a medianoche para ver si la cita era de un día anterior
+      const esVencida = new Date(fechaCitaDate.toLocaleString('en-US', { timeZone: tz })).setHours(0,0,0,0) < new Date(hoyDate.toLocaleString('en-US', { timeZone: tz })).setHours(0,0,0,0);
+      const fechaProgramadaStr = fechaCitaDate.toLocaleDateString('es-MX', { timeZone: tz, day: '2-digit', month: '2-digit', year: 'numeric' });
+
       if (asistio !== true) {
         await connection.query(
           `UPDATE citas_biometricas SET estado = 'cancelada', updated_at = NOW() WHERE id = ?`,
@@ -1592,7 +1599,9 @@ class CitaService {
           usuarioId,
           'inasistencia',
           'No asistió a cita',
-          'Se marcó inasistencia desde filtro final',
+          esVencida 
+            ? `Seguimiento tardío: La cita estaba programada para el ${fechaProgramadaStr}, pero la inasistencia se registró en sistema el día de hoy.` 
+            : 'Se marcó inasistencia desde filtro final',
           null
         );
 
@@ -1622,7 +1631,9 @@ class CitaService {
         usuarioId,
         'checkin',
         'Validación de asistencia',
-        'El solicitante asistió físicamente a la cita',
+        esVencida 
+          ? `Seguimiento tardío: La cita estaba programada para el ${fechaProgramadaStr}, pero la asistencia del elemento se validó el día de hoy.` 
+          : 'El solicitante asistió físicamente a la cita',
         null
       );
 
