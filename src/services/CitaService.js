@@ -1549,6 +1549,7 @@ class CitaService {
     }
   }
 
+  // Finalizar flujo de cita biométrica
   async finalizarFlujoCita(
     citaId,
     usuarioId,
