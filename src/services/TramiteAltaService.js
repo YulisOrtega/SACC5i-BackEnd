@@ -752,7 +752,10 @@ class TramiteAltaService {
 
   async generarOficioRechazo(personaId) {
     const sql = `
-      SELECT p.id, p.nombre, p.apellido_paterno, p.apellido_materno, CONCAT(p.nombre, ' ', p.apellido_paterno, ' ', IFNULL(p.apellido_materno, '')) as nombre_completo, p.fecha_nacimiento, p.motivo_rechazo, p.observaciones_c3, p.numero_oficio_c3, p.updated_at as fecha_rechazo, t.numero_solicitud, t.fecha_solicitud, t.es_tramite_dependencia, pu.nombre as puesto_solicitado, pu.es_competencia_municipal, pu.motivo_no_competencia, m.nombre as municipio_nombre, r.nombre as region_nombre, dep.nombre as dependencia_nombre, ua.nombre_completo as analista_nombre, uv.nombre_completo as validador_c3_nombre,
+      SELECT p.id, p.nombre, p.apellido_paterno, p.apellido_materno, CONCAT(p.nombre, ' ', p.apellido_paterno, ' ', IFNULL(p.apellido_materno, '')) as nombre_completo, p.fecha_nacimiento, p.motivo_rechazo, p.observaciones_c3, p.numero_oficio_c3, p.updated_at as fecha_rechazo,COALESCE(
+  NULLIF(TRIM(t.numero_oficio_c5), ''),
+  t.numero_solicitud
+) AS numero_solicitud, t.fecha_solicitud, t.es_tramite_dependencia, pu.nombre as puesto_solicitado, pu.es_competencia_municipal, pu.motivo_no_competencia, m.nombre as municipio_nombre, r.nombre as region_nombre, dep.nombre as dependencia_nombre, ua.nombre_completo as analista_nombre, uv.nombre_completo as validador_c3_nombre,
         CASE 
           WHEN pu.es_competencia_municipal = FALSE THEN 'Filtro de Competencia'
           WHEN p.fase_cuip = 'rechazado_cuip' THEN 'Validacion CUIP'
@@ -788,7 +791,7 @@ class TramiteAltaService {
     const fechaHoy = new Date();
 
     return {
-      oficio: { numero_solicitud: p.numero_solicitud, numero_oficio_c3: p.numero_oficio_c3 || '', fecha_emision: fechaHoy.toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' }), fecha_emision_iso: fechaHoy.toISOString() },
+      oficio: { numero_solicitud: String(p.numero_solicitud || '').replace(/\//g, ''), numero_oficio_c3: p.numero_oficio_c3 || '', fecha_emision: fechaHoy.toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' }), fecha_emision_iso: fechaHoy.toISOString() },
       persona: { id: p.id, nombre_completo: p.nombre_completo, fecha_nacimiento: p.fecha_nacimiento ? new Date(p.fecha_nacimiento).toLocaleDateString('es-MX') : 'No registrada', puesto_solicitado: p.puesto_solicitado },
       rechazo: { etapa: p.etapa_rechazo, motivo: p.motivo_especifico || p.motivo_rechazo || 'Sin especificar', fecha: fechaRechazo.toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' }), fecha_iso: p.fecha_rechazo },
       contexto: { municipio: p.municipio_nombre || 'No aplica', region: p.region_nombre || 'No aplica', dependencia: p.dependencia_nombre || 'No aplica', es_dependencia: p.es_tramite_dependencia ? true : false, analista: p.analista_nombre || 'No asignado', validador_c3: p.validador_c3_nombre || 'No asignado' }
