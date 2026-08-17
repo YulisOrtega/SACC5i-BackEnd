@@ -7,7 +7,14 @@ import pool from '../config/database.js';
 import jwt from 'jsonwebtoken';
 
 const router = express.Router();
-const upload = multer({ dest: 'uploads/municipios/' }); 
+const upload = multer({ 
+  dest: 'uploads/municipios/',
+  fileFilter: (req, file, cb) => {
+    // ESTA LÍNEA ES LA MAGIA PARA LOS ACENTOS
+    file.originalname = Buffer.from(file.originalname, 'latin1').toString('utf8');
+    cb(null, true);
+  }
+});
 
 router.use(authMiddleware);
 
