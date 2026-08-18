@@ -7,9 +7,24 @@ import pool from '../config/database.js';
 import jwt from 'jsonwebtoken';
 
 const router = express.Router();
-//acentos en los nombres de archivos
+
+
+// Configuración de Multer para conservar acentos y extensiones (.pdf)
+const storage = multer.diskStorage({
+  destination: 'uploads/municipios/',
+  filename: (req, file, cb) => {
+    // 1. Corregimos los acentos del nombre original
+    const safeName = Buffer.from(file.originalname, 'latin1').toString('utf8');
+    // 2. Creamos un prefijo único para que no se sobreescriban
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    // 3. Guardamos el archivo con su prefijo y nombre original (incluyendo el .pdf)
+    cb(null, uniqueSuffix + '-' + safeName);
+  }
+});
+
 const upload = multer({ 
-  dest: 'uploads/municipios/',
+  storage: storage,
+  // Mantenemos el fileFilter para que `req.files` lea el nombre bonito en tu controlador
   fileFilter: (req, file, cb) => {
     file.originalname = Buffer.from(file.originalname, 'latin1').toString('utf8');
     cb(null, true);
