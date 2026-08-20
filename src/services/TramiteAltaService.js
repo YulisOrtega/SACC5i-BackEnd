@@ -33,10 +33,35 @@ class TramiteAltaService {
 
   async crearSolicitud(usuarioId, regionId, datos) {
     if (!datos.es_tramite_dependencia) {
-      const municipioValido = await MunicipioModel.belongsToRegion(
+      let municipioValido = await MunicipioModel.belongsToRegion(
         datos.municipio_id,
         regionId
       );
+
+      // 👇 LA MAGIA PARTE 3: Excepción de seguridad al guardar (Tehuacán / Región 6)
+      if (!municipioValido && Number(regionId) === 6) {
+        // Consultamos rápido el nombre del municipio que intenta guardar
+        const muni = await TramiteAltaModel.query(
+          'SELECT nombre FROM municipios WHERE id = ?',
+          [datos.municipio_id]
+        );
+
+        if (muni && muni.length > 0) {
+          const nombreMunicipio = muni[0].nombre;
+          const municipiosExtras = [
+            'Nicolas Bravo', 'San Antonio Cañada', 'San Gabriel Chilac', 
+            'San Jose Miahuatlán', 'San Sebastián Tlacotepec', 'Santiago Miahuatlán', 
+            'Tehuacán', 'Tepanco de Lopez', 'Tepexi de Rodríguez', 
+            'Tlacotepec De Benito Juarez', 'Vicente Guerrero', 'Zapotitlán', 
+            'Zinacatepec', 'Zoquitlán'
+          ];
+          
+          // Si el municipio que intenta guardar está en la lista extra, le damos luz verde
+          if (municipiosExtras.includes(nombreMunicipio)) {
+            municipioValido = true; 
+          }
+        }
+      }
 
       if (!municipioValido) {
         throw new Error('El municipio no pertenece a tu región asignada');

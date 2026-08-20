@@ -169,47 +169,26 @@ class CitaService {
     return Number(yearFolderId);
   }
 
-  async _guardarDocumentoFinalizadoEnRepositorio(connection, registro, file, userId, { folderLimitError } = {}) {
-    const folderId = await this._asegurarCarpetaAcusesAnual(connection, userId);
-    const [[{ total }]] = await connection.query(
-      'SELECT COUNT(*) AS total FROM repositorio_files WHERE folder_id = ?',
-      [folderId]
-    );
+  async _guardarDocumentoFinalizadoEnRepositorio(connection, registro, file, userId) {
+    // 1. Nueva ruta exclusiva para los archivos de Finalizados (aislada del repositorio global)
+    const uploadsRoot = path.resolve('uploads', 'finalizados');
+    await fs.promises.mkdir(uploadsRoot, { recursive: true });
 
-    if (Number(total || 0) >= 10000) {
-      throw new Error(folderLimitError || 'La carpeta anual de acuses alcanzó el límite de 10,000 archivos');
-    }
-
-    const uploadsRoot = path.resolve('uploads', 'repositorio-digital');
-    await fs.promises.mkdir(path.join(uploadsRoot, String(folderId)), { recursive: true });
-
+    // 2. Generamos un nombre seguro para el archivo
     const safeOriginal = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
     const storedName = `${Date.now()}_${safeOriginal}`;
-    const absolutePath = path.join(uploadsRoot, String(folderId), storedName);
+    const absolutePath = path.join(uploadsRoot, storedName);
+
+    // 3. Guardamos el archivo físicamente en la nueva carpeta
     await fs.promises.writeFile(absolutePath, file.buffer);
 
-    const relativePath = path.join('repositorio-digital', String(folderId), storedName).replace(/\\/g, '/');
+    // 4. Creamos la ruta relativa (usando posix para compatibilidad con bases de datos en Linux/Windows)
+    const relativePath = path.posix.join('finalizados', storedName);
 
-    const [insertFile] = await connection.query(
-      `INSERT INTO repositorio_files
-       (folder_id, original_name, stored_name, relative_path, mime_type, size_bytes, folio, nombre_expediente, subido_por_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        folderId,
-        file.originalname,
-        storedName,
-        relativePath,
-        file.mimetype,
-        file.size,
-        registro.numero_oficio || null,
-        registro.nombre_elemento || null,
-        userId || null
-      ]
-    );
-
+    // 5. Retornamos los datos SIN vincularlos a las tablas de "repositorio_folders" ni "repositorio_files"
     return {
-      folderId,
-      repoFileId: insertFile.insertId,
+      folderId: null,
+      repoFileId: null,
       originalName: file.originalname,
       storedName,
       relativePath
@@ -217,15 +196,11 @@ class CitaService {
   }
 
   async _guardarAcuseEnRepositorio(connection, registro, file, userId) {
-    return this._guardarDocumentoFinalizadoEnRepositorio(connection, registro, file, userId, {
-      folderLimitError: 'La carpeta anual de constancias alcanzó el límite de 10,000 archivos'
-    });
+    return this._guardarDocumentoFinalizadoEnRepositorio(connection, registro, file, userId);
   }
 
   async _guardarAcusePersonaEnRepositorio(connection, registro, file, userId) {
-    return this._guardarDocumentoFinalizadoEnRepositorio(connection, registro, file, userId, {
-      folderLimitError: 'La carpeta anual de acuses alcanzó el límite de 10,000 archivos'
-    });
+    return this._guardarDocumentoFinalizadoEnRepositorio(connection, registro, file, userId);
   }
 
   async _eliminarDocumentoAdjunto(connection, registro, pathField, repoFileIdField) {
@@ -255,6 +230,29 @@ class CitaService {
       'acuse_persona_relative_path',
       'acuse_persona_repositorio_file_id'
     );
+  }
+
+  // 👇 Nueva función que busca el archivo físico en la ruta nueva o en la vieja
+  _resolverRutaFisica(relativePath) {
+    if (!relativePath) return null;
+    
+    // Intento 1: Ruta normal de la base de datos
+    let absPath = path.resolve('uploads', relativePath);
+    if (fs.existsSync(absPath)) return absPath;
+
+    // Intento 2: Si en la base de datos ya está limpia, pero físicamente sigue adentro de '536/'
+    if (relativePath.includes('repositorio-digital/')) {
+      const fallback1 = path.resolve('uploads', relativePath.replace('repositorio-digital/', 'repositorio-digital/536/'));
+      if (fs.existsSync(fallback1)) return fallback1;
+    }
+
+    // Intento 3: Si en la base de datos dice '536/' pero lo movieron afuera
+    if (relativePath.includes('repositorio-digital/536/')) {
+      const fallback2 = path.resolve('uploads', relativePath.replace('repositorio-digital/536/', 'repositorio-digital/'));
+      if (fs.existsSync(fallback2)) return fallback2;
+    }
+
+    return null; // Si de plano no existe en ningún lado
   }
 
   async _asegurarColumnasAcusePersona(connection, tablaFinalizados) {
@@ -1172,7 +1170,94 @@ class CitaService {
     }
   }
 
-  async listarFinalizados({ busqueda = '', analista_id = '', pagina = 1, limit = 10 } = {}) {
+  async obtenerConstanciaFinalizado(finalizadoId) {
+    const connection = await pool.getConnection();
+    try {
+      const registro = await this._obtenerRegistroFinalizadoPorId(connection, finalizadoId);
+      if (!registro) throw new Error('Registro finalizado no encontrado');
+      if (!registro.acuse_relative_path) {
+        throw new Error('Este registro no tiene constancia cargada');
+      }
+
+      // 👇 Usamos nuestra nueva función inteligente
+      const absolutePath = this._resolverRutaFisica(registro.acuse_relative_path);
+      if (!absolutePath) {
+        throw new Error('No se encontro el archivo físico de la constancia en el servidor');
+      }
+
+      return {
+        absolutePath,
+        originalName: registro.acuse_original_name || 'constancia.pdf'
+      };
+    } finally {
+      connection.release();
+    }
+  }
+
+  async obtenerAcusePersonaFinalizado(finalizadoId) {
+    const connection = await pool.getConnection();
+    try {
+      const registro = await this._obtenerRegistroFinalizadoPorId(connection, finalizadoId);
+      if (!registro) throw new Error('Registro finalizado no encontrado');
+
+      await this._asegurarColumnasAcusePersona(connection, registro._tabla_finalizados || 'finalizados');
+      if (!registro.acuse_persona_relative_path) {
+        throw new Error('Este registro no tiene acuse de persona cargado');
+      }
+
+      // 👇 Usamos nuestra nueva función inteligente
+      const absolutePath = this._resolverRutaFisica(registro.acuse_persona_relative_path);
+      if (!absolutePath) {
+        throw new Error('No se encontro el archivo físico del acuse en el servidor');
+      }
+
+      return {
+        absolutePath,
+        originalName: registro.acuse_persona_original_name || 'acuse_persona.pdf'
+      };
+    } finally {
+      connection.release();
+    }
+  }
+
+  async obtenerArchivosFinalizadosParaZip(ids = []) {
+    const connection = await pool.getConnection();
+    try {
+      const tablaFinalizados = await this._resolverTablaFinalizados(connection);
+      if (!tablaFinalizados) throw new Error('No se encontró la tabla de finalizados');
+
+      const validIds = ids.map(Number).filter(Boolean);
+      if (!validIds.length) throw new Error('No se enviaron registros seleccionados');
+
+      const placeholders = validIds.map(() => '?').join(',');
+      const [rows] = await connection.query(
+        `SELECT nombre_elemento, acuse_relative_path, acuse_persona_relative_path 
+         FROM ${tablaFinalizados} WHERE id IN (${placeholders})`,
+        validIds
+      );
+
+      const files = [];
+      for (const row of rows) {
+        const nombreLimpio = String(row.nombre_elemento || 'elemento').replace(/[^a-zA-Z0-9]/g, '_');
+        
+        // 👇 Validamos con el buscador inteligente para evitar que el ZIP colapse
+        if (row.acuse_relative_path) {
+          const absPath = this._resolverRutaFisica(row.acuse_relative_path);
+          if (absPath) files.push({ absolutePath: absPath, name: `Constancia_${nombreLimpio}.pdf` });
+        }
+        
+        if (row.acuse_persona_relative_path) {
+          const absPath = this._resolverRutaFisica(row.acuse_persona_relative_path);
+          if (absPath) files.push({ absolutePath: absPath, name: `AcusePersona_${nombreLimpio}.pdf` });
+        }
+      }
+      return files;
+    } finally {
+      connection.release();
+    }
+  }
+
+  async listarFinalizados({ busqueda = '', analista_id = '', region_id = '', pagina = 1, limit = 10 } = {}) {
     const connection = await pool.getConnection();
     try {
       const tablaFinalizados = await this._resolverTablaFinalizados(connection);
@@ -1189,61 +1274,31 @@ class CitaService {
       const cleanSearch = String(busqueda || '').trim();
       const like = `%${cleanSearch}%`;
       const analistaId = Number(analista_id);
+      const regionId = Number(region_id);
       const hasAnalistaFilter = Number.isFinite(analistaId) && analistaId > 0;
 
       const whereConditions = [];
       const whereParams = [];
 
-      const tablaTieneIsBaja = await this._tablaFinalizadosTieneColumna(
-        connection,
-        tablaFinalizados,
-        'is_baja'
-      );
-
-      if (tablaTieneIsBaja) {
-        whereConditions.push('IFNULL(f.is_baja, 0) = 0');
-      }
+      const tablaTieneIsBaja = await this._tablaFinalizadosTieneColumna(connection, tablaFinalizados, 'is_baja');
+      if (tablaTieneIsBaja) whereConditions.push('IFNULL(f.is_baja, 0) = 0');
 
       if (cleanSearch) {
-        whereConditions.push(`(
-          f.nombre_elemento LIKE ?
-          OR IFNULL(f.numero_oficio, '') LIKE ?
-          OR IFNULL(f.cuip, '') LIKE ?
-        )`);
+        whereConditions.push(`(f.nombre_elemento LIKE ? OR IFNULL(f.numero_oficio, '') LIKE ? OR IFNULL(f.cuip, '') LIKE ?)`);
         whereParams.push(like, like, like);
       }
 
-      if (cleanSearch) {
-        whereConditions.push(`(
-          f.nombre_elemento LIKE ?
-          OR IFNULL(f.numero_oficio, '') LIKE ?
-          OR IFNULL(f.cuip, '') LIKE ?
-        )`);
-        whereParams.push(like, like, like);
-      }
-
-      const tablaTieneTramiteAltaId = await this._tablaFinalizadosTieneColumna(
-        connection,
-        tablaFinalizados,
-        'tramite_alta_id'
-      );
-      const joinTramites = tablaTieneTramiteAltaId
-        ? 'LEFT JOIN tramites_alta ta ON ta.id = f.tramite_alta_id'
-        : '';
-      const joinMunicipios = tablaTieneTramiteAltaId
-        ? 'LEFT JOIN municipios m ON m.id = ta.municipio_id'
-        : '';
-      const analistaSelect = tablaTieneTramiteAltaId
-        ? 'ta.usuario_analista_c5_id AS analista_id'
-        : 'NULL AS analista_id';
-      const tablaTieneAcusePersona = await this._tablaFinalizadosTieneColumna(
-        connection,
-        tablaFinalizados,
-        'acuse_persona_relative_path'
-      );
+      const tablaTieneTramiteAltaId = await this._tablaFinalizadosTieneColumna(connection, tablaFinalizados, 'tramite_alta_id');
+      const joinTramites = tablaTieneTramiteAltaId ? 'LEFT JOIN tramites_alta ta ON ta.id = f.tramite_alta_id' : '';
+      const joinMunicipios = tablaTieneTramiteAltaId ? 'LEFT JOIN municipios m ON m.id = ta.municipio_id' : '';
+      
+      // 👇 Agregamos el join con usuarios para saber la región del analista
+      const joinUsuarios = tablaTieneTramiteAltaId ? 'LEFT JOIN usuarios u ON u.id = ta.usuario_analista_c5_id' : '';
+      const analistaSelect = tablaTieneTramiteAltaId ? 'ta.usuario_analista_c5_id AS analista_id' : 'NULL AS analista_id';
+        
+      const tablaTieneAcusePersona = await this._tablaFinalizadosTieneColumna(connection, tablaFinalizados, 'acuse_persona_relative_path');
       const acusePersonaSelect = tablaTieneAcusePersona
-        ? `CASE WHEN f.acuse_persona_relative_path IS NULL THEN FALSE ELSE TRUE END AS acuse_persona_subido,
-           f.acuse_persona_original_name`
+        ? `CASE WHEN f.acuse_persona_relative_path IS NULL THEN FALSE ELSE TRUE END AS acuse_persona_subido, f.acuse_persona_original_name`
         : 'FALSE AS acuse_persona_subido, NULL AS acuse_persona_original_name';
 
       if (hasAnalistaFilter && tablaTieneTramiteAltaId) {
@@ -1251,41 +1306,29 @@ class CitaService {
         whereParams.push(analistaId);
       }
 
+      // 👇 El filtro ahora busca si la región coincide con el municipio OR con el analista
+      if (Number.isFinite(regionId) && regionId > 0 && tablaTieneTramiteAltaId) {
+        whereConditions.push('(m.region_id = ? OR u.region_id = ?)');
+        whereParams.push(regionId, regionId);
+      }
+
       const whereClause = whereConditions.length ? `WHERE ${whereConditions.join(' AND ')}` : '';
 
       const [[{ total }]] = await connection.query(
-        `SELECT COUNT(*) AS total
-         FROM ${tablaFinalizados} f
-         ${joinTramites}
-         ${whereClause}`,
+        `SELECT COUNT(*) AS total FROM ${tablaFinalizados} f ${joinTramites} ${joinMunicipios} ${joinUsuarios} ${whereClause}`,
         whereParams
       );
 
       const [rows] = await connection.query(
         `SELECT
-          f.id,
-          f.cita_id,
-          f.tramite_alta_id,
-          f.nombre_elemento,
-          f.puesto_elemento,
-          f.numero_oficio,
-          f.fecha_termino,
-          f.cuip,
-          f.fase1_estado,
-          m.nombre AS municipio_nombre,
+          f.id, f.cita_id, f.tramite_alta_id, f.nombre_elemento, f.puesto_elemento,
+          f.numero_oficio, f.fecha_termino, f.cuip, f.fase1_estado, m.nombre AS municipio_nombre,
           CASE WHEN f.acuse_relative_path IS NULL THEN FALSE ELSE TRUE END AS constancia_subida,
-           CASE WHEN f.acuse_relative_path IS NULL THEN FALSE ELSE TRUE END AS acuse_subido,
-           f.acuse_original_name AS constancia_original_name,
-           f.acuse_original_name,
-           ${acusePersonaSelect},
-           f.repositorio_folder_id,
-           f.created_at,
-           f.updated_at,
-            ${analistaSelect}
+          CASE WHEN f.acuse_relative_path IS NULL THEN FALSE ELSE TRUE END AS acuse_subido,
+          f.acuse_original_name AS constancia_original_name, f.acuse_original_name,
+          ${acusePersonaSelect}, f.repositorio_folder_id, f.created_at, f.updated_at, ${analistaSelect}
         FROM ${tablaFinalizados} f
-         ${joinTramites}
-         ${joinMunicipios}
-         ${whereClause}
+         ${joinTramites} ${joinMunicipios} ${joinUsuarios} ${whereClause}
          ORDER BY f.created_at DESC
          LIMIT ? OFFSET ?`,
         [...whereParams, parsedLimit, offset]
@@ -1293,12 +1336,7 @@ class CitaService {
 
       return {
         registros: rows || [],
-        paginacion: {
-          total,
-          totalPaginas: Math.max(1, Math.ceil(total / parsedLimit)),
-          pagina: parsedPage,
-          limit: parsedLimit
-        }
+        paginacion: { total, totalPaginas: Math.max(1, Math.ceil(total / parsedLimit)), pagina: parsedPage, limit: parsedLimit }
       };
     } finally {
       connection.release();
@@ -1501,54 +1539,7 @@ class CitaService {
     }
   }
 
-  async obtenerConstanciaFinalizado(finalizadoId) {
-    const connection = await pool.getConnection();
-    try {
-      const registro = await this._obtenerRegistroFinalizadoPorId(connection, finalizadoId);
-      if (!registro) throw new Error('Registro finalizado no encontrado');
-      if (!registro.acuse_relative_path) {
-        throw new Error('Este registro no tiene constancia cargada');
-      }
-
-      const absolutePath = path.resolve('uploads', registro.acuse_relative_path);
-      if (!fs.existsSync(absolutePath)) {
-        throw new Error('No se encontro el archivo de constancia en el servidor');
-      }
-
-      return {
-        absolutePath,
-        originalName: registro.acuse_original_name || 'constancia.pdf'
-      };
-    } finally {
-      connection.release();
-    }
-  }
-
-  async obtenerAcusePersonaFinalizado(finalizadoId) {
-    const connection = await pool.getConnection();
-    try {
-      const registro = await this._obtenerRegistroFinalizadoPorId(connection, finalizadoId);
-      if (!registro) throw new Error('Registro finalizado no encontrado');
-
-      await this._asegurarColumnasAcusePersona(connection, registro._tabla_finalizados || 'finalizados');
-      if (!registro.acuse_persona_relative_path) {
-        throw new Error('Este registro no tiene acuse de persona cargado');
-      }
-
-      const absolutePath = path.resolve('uploads', registro.acuse_persona_relative_path);
-      if (!fs.existsSync(absolutePath)) {
-        throw new Error('No se encontro el archivo de acuse de persona en el servidor');
-      }
-
-      return {
-        absolutePath,
-        originalName: registro.acuse_persona_original_name || 'acuse_persona.pdf'
-      };
-    } finally {
-      connection.release();
-    }
-  }
-
+  
   // Finalizar flujo de cita biométrica
   async finalizarFlujoCita(
     citaId,
@@ -1734,6 +1725,8 @@ class CitaService {
       connection.release();
     }
   }
+
+  
 }
 
 export default new CitaService();

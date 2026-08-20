@@ -71,7 +71,8 @@ import {
   eliminarAcusePersonaFinalizado,
   verConstanciaFinalizado,
   verAcusePersonaFinalizado,
-  reenviarNotificacionCita
+  reenviarNotificacionCita,
+  descargarZipFinalizados
 } from '../controllers/citasController.js';
 import {
   obtenerCatalogoBajas,
@@ -331,6 +332,11 @@ router.post('/dashboard-municipios/agregar',
   ],
   validate,
   agregarMunicipioDashboard
+);
+
+router.post('/finalizados/zip',
+  requireRole('admin', 'super_admin', 'direccion', 'coordinador'),
+  descargarZipFinalizados
 );
 
 /**
