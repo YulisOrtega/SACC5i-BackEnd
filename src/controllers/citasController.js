@@ -1,5 +1,5 @@
 import CitaService from '../services/CitaService.js';
-
+import archiver from 'archiver';
 
 /**
  * Listar citas con filtros y paginación
@@ -166,14 +166,16 @@ export const finalizarFlujoCita = async (req, res) => {
 
 export const listarFinalizados = async (req, res) => {
   try {
-    const { busqueda = '', analista_id = null, pagina = 1, limit = 10 } = req.query;
+    // Recibimos region_id de la URL
+    const { busqueda = '', analista_id = null, region_id = null, pagina = 1, limit = 10 } = req.query;
 
-    // 👇 REGLA DE PRIVACIDAD: Si es analista, solo ve sus expedientes finalizados.
+    // REGLA DE PRIVACIDAD: Si es analista, solo ve sus expedientes finalizados.
     const analistaIdFinal = req.userRole === 'analista' ? req.userId : analista_id;
 
     const data = await CitaService.listarFinalizados({ 
       busqueda, 
       analista_id: analistaIdFinal, 
+      region_id, // <--- SE LO PASAMOS AL SERVICIO
       pagina, 
       limit 
     });
@@ -286,5 +288,32 @@ export const verAcusePersonaFinalizado = async (req, res) => {
         ? 404
         : 500;
     res.status(code).json({ success: false, message: err.message });
+  }
+};
+
+export const descargarZipFinalizados = async (req, res) => {
+  try {
+    const { ids } = req.body;
+    const files = await CitaService.obtenerArchivosFinalizadosParaZip(ids);
+
+    if (files.length === 0) {
+      return res.status(404).json({ success: false, message: 'No se encontraron archivos físicos para los registros seleccionados.' });
+    }
+
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', 'attachment; filename="expedientes_concluidos.zip"');
+
+    const archive = archiver('zip', { zlib: { level: 9 } });
+    archive.on('error', (err) => { throw err; });
+    archive.pipe(res);
+
+    files.forEach(file => {
+      archive.file(file.absolutePath, { name: file.name });
+    });
+
+    await archive.finalize();
+  } catch (err) {
+    console.error('Error generando ZIP:', err);
+    if (!res.headersSent) res.status(500).json({ success: false, message: err.message });
   }
 };

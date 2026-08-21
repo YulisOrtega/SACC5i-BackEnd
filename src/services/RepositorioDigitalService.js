@@ -250,16 +250,21 @@ const RepositorioDigitalService = {
 
     await ensureUploadsRoot();
 
-    const folderDir = path.join(uploadsRoot, String(folderId));
-    await fs.promises.mkdir(folderDir, { recursive: true });
-
+    // 1. Ya no creamos la carpeta con el ID (folderDir)
+    // Usamos directamente uploadsRoot (que apunta a uploads/repositorio-digital)
+    
+    // 2. Mantenemos el nombre seguro para evitar errores en Windows/Linux
     const safeOriginal = originalName.replace(/[^a-zA-Z0-9._-]/g, '_');
     const storedName = `${Date.now()}_${safeOriginal}`;
-    const absolutePath = path.join(folderDir, storedName);
+    
+    // 3. El path absoluto ahora apunta directo a la carpeta principal
+    const absolutePath = path.join(uploadsRoot, storedName);
 
+    // 4. Guardamos el archivo en disco
     await fs.promises.writeFile(absolutePath, file.buffer);
 
-    const relativePath = path.join('repositorio-digital', String(folderId), storedName).replace(/\\/g, '/');
+    // 5. El path relativo que se guarda en BD ya no lleva el folderId
+    const relativePath = path.posix.join('repositorio-digital', storedName);
 
     const [result] = await pool.query(
       `INSERT INTO repositorio_files
